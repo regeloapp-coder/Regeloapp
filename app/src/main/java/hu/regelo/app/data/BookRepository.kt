@@ -41,6 +41,8 @@ data class BookCard(
 class BookRepository {
     private val chapterMetaColumns = Columns.list("id", "book_id", "title", "word_count", "order_index", "is_draft", "updated_at", "published_at")
 
+    internal fun filterValues(ids: Collection<String>): List<String> = ids.distinct().sorted()
+
     suspend fun discover(f: DiscoverFilter, page: Int, pageSize: Int = 24): DiscoverPage {
         if (f.sort == DiscoverSort.TOP_RATED) return topRated(f, page, pageSize)
         val q = sanitizeSearch(f.query)
@@ -50,7 +52,7 @@ class BookRepository {
         val books = AppGraph.supabase.from("books").select {
             filter {
                 eq("publish_status", PublishStatus.PUBLISHED)
-                if (official.isNotEmpty()) notIn("id", official.toList())
+                if (official.isNotEmpty()) notIn("id", filterValues(official))
                 // 18+ művek csak életkor-megerősítés után jelennek meg.
                 if (!adult) neq("age_rating", "18+")
                 if (q.isNotEmpty()) {
@@ -256,4 +258,3 @@ class BookRepository {
  */
 internal fun sanitizeSearch(raw: String): String =
     raw.replace(Regex("[%,()\"\\*:]"), " ").replace(Regex("\\s+"), " ").trim().take(100)
-
