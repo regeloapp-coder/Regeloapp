@@ -1,0 +1,334 @@
+<title>Regélő jogi információk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+  /* Elrendezés: egy olvasóoszlop, fent ragadós fejezetváltó; a dokumentumok szakaszonként, paragrafusszámmal. */
+  :root {
+    --paper: #F7F3EC;
+    --surface: #FFFDF9;
+    --ink: #22304A;
+    --muted: #5C6578;
+    --rule: #E3DCD0;
+    --accent: #B4682C;
+    --accent-soft: #F3E3D3;
+    --mark: #FFF1B8;
+    --font-display: "Lora", Georgia, "Times New Roman", serif;
+    --font-body: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #191C22;
+      --surface: #21252D;
+      --ink: #E9E4DA;
+      --muted: #A7ADBA;
+      --rule: #343A45;
+      --accent: #E3995C;
+      --accent-soft: #3A2E25;
+      --mark: #5A4A12;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #191C22;
+    --surface: #21252D;
+    --ink: #E9E4DA;
+    --muted: #A7ADBA;
+    --rule: #343A45;
+    --accent: #E3995C;
+    --accent-soft: #3A2E25;
+    --mark: #5A4A12;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; padding-inline: 1.25rem; padding-block: 2.5rem 4rem; }
+
+  header.masthead { display: grid; gap: 0.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--rule); }
+  .brand { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--accent); letter-spacing: 0.02em; }
+  h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.8rem, 5vw, 2.4rem); line-height: 1.2; margin: 0; text-wrap: balance; }
+  .lede { color: var(--muted); margin: 0; max-width: 38rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.875rem; color: var(--muted); }
+  .meta strong { color: var(--ink); font-weight: 600; }
+
+  nav.toc {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    margin-inline: -1.25rem; padding: 0.6rem 1.25rem;
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+  }
+  nav.toc a {
+    font-size: 0.875rem; font-weight: 600; color: var(--ink); text-decoration: none;
+    padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface);
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+
+  section.doc { padding-top: 2.5rem; scroll-margin-top: 4rem; }
+  section.doc > h2 {
+    font-family: var(--font-display); font-weight: 600; font-size: 1.6rem; line-height: 1.25;
+    margin: 0 0 0.25rem; text-wrap: balance;
+  }
+  .doc-intro { color: var(--muted); margin: 0 0 1.5rem; }
+  h3 {
+    font-size: 1.05rem; font-weight: 700; margin: 2rem 0 0.5rem;
+    display: grid; grid-template-columns: 2.4rem 1fr; align-items: baseline;
+  }
+  h3 .num { font-family: var(--font-display); color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .body { padding-left: 2.4rem; }
+  .body p { margin: 0 0 0.75rem; }
+  .body ul { margin: 0 0 0.75rem; padding-left: 1.1rem; }
+  .body li { margin-bottom: 0.35rem; }
+
+  .table-scroll { overflow-x: auto; margin: 0.5rem 0 1rem; border: 1px solid var(--rule); border-radius: 0.5rem; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.875rem; }
+  th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 700; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  tr:last-child td { border-bottom: none; }
+
+  .contact {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+    background: var(--accent-soft); border-radius: 0.6rem; padding: 0.8rem 1rem; margin: 0.5rem 0 1rem;
+  }
+  .contact code { font-family: var(--font-body); font-weight: 700; font-size: 1rem; user-select: all; word-break: break-all; }
+  .contact button {
+    font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 0.25rem 0.75rem;
+  }
+  .contact button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .placeholder { background: var(--mark); padding: 0 0.25rem; border-radius: 0.2rem; font-weight: 600; }
+
+  ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 0.5rem 0 1rem; display: grid; gap: 0.6rem; }
+  ol.steps li { counter-increment: step; display: grid; grid-template-columns: 2rem 1fr; gap: 0.5rem; align-items: start; }
+  ol.steps li::before {
+    content: counter(step); display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%;
+    background: var(--accent); color: var(--surface); font-weight: 700; font-size: 0.8rem;
+  }
+  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.85rem; }
+
+  @media (max-width: 30rem) {
+    h3 { grid-template-columns: 2rem 1fr; }
+    .body { padding-left: 0; }
+  }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand">Regélő</div>
+    <h1>Jogi információk</h1>
+    <p class="lede">A Regélő írói és olvasói közösség (Android-alkalmazás) adatvédelmi tájékoztatója, felhasználási feltételei és a fiók törlésének módja.</p>
+    <div class="meta">
+      <span>Hatályos: <strong>2026. október 13.</strong></span>
+      <span>Alkalmazás: <strong>Regélő (hu.regelo.app)</strong></span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Dokumentumok">
+    <a href="#adatvedelem">Adatvédelmi tájékoztató</a>
+    <a href="#feltetelek">Felhasználási feltételek</a>
+    <a href="#fiok-torlese">Fiók és adatok törlése</a>
+  </nav>
+
+  <!-- ===================================================== ADATVÉDELEM -->
+  <section class="doc" id="adatvedelem">
+    <h2>Adatvédelmi tájékoztató</h2>
+    <p class="doc-intro">Az Európai Unió általános adatvédelmi rendelete (GDPR) szerint: milyen adatokat kezelünk, miért, meddig, és milyen jogaid vannak.</p>
+
+    <h3><span class="num">1.</span><span>Az adatkezelő</span></h3>
+    <div class="body">
+      <p>Az adatkezelő: <strong>Triff-Árkosi Anna</strong>, magánszemély, a Regélő alkalmazás fejlesztője és üzemeltetője.</p>
+      <p>Adatvédelmi kérdésekben, kérésekkel és panaszokkal ide írhatsz:</p>
+      <div class="contact">
+        <code id="contact-email-1">regeloapp@gmail.com</code>
+        <button type="button" data-copy="contact-email-1">Másolás</button>
+      </div>
+    </div>
+
+    <h3><span class="num">2.</span><span>Milyen adatokat kezelünk, és miért</span></h3>
+    <div class="body">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Adatok</th><th>Cél</th><th>Jogalap</th><th>Meddig</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>E-mail cím, jelszó (csak titkosított, visszafejthetetlen formában), a regisztráció ideje</td><td>Fiók létrehozása, bejelentkezés, jelszó-visszaállítás, rendszerüzenetek</td><td>Szerződés teljesítése (GDPR 6. cikk (1) b)</td><td>A fiók törléséig</td></tr>
+            <tr><td>Nyilvános profil: megjelenített név, felhasználónév, profilkép, fejléckép, bemutatkozás, közösségi linkek</td><td>A profilod megjelenítése a közösségben</td><td>Szerződés teljesítése</td><td>A fiók törléséig, vagy amíg módosítod</td></tr>
+            <tr><td>Műveid: könyvek, fejezetek, borító- és fejezetképek, sorozatok, szereplők és idővonal</td><td>Írás, mentés több eszközre, publikálás</td><td>Szerződés teljesítése</td><td>Amíg nem törlöd, legkésőbb a fiók törléséig</td></tr>
+            <tr><td>Közösségi tevékenység: hozzászólások, értékelések és vélemények, kedvelések, követések, üzenetek, értesítések</td><td>A közösségi funkciók működése</td><td>Szerződés teljesítése</td><td>Amíg nem törlöd, legkésőbb a fiók törléséig</td></tr>
+            <tr><td>Bejelentések és letiltások</td><td>Moderálás, a felhasználók védelme, visszaélések kezelése</td><td>Jogos érdek (GDPR 6. cikk (1) f)</td><td>A bejelentő vagy a bejelentett fiók törléséig</td></tr>
+            <tr><td>Olvasói adatok: olvasási előrehaladás, „később olvasom” lista, kedvencek, gyűjtemények, olvasói jegyzetek</td><td>Szinkronizálás a fiókod eszközei között</td><td>Szerződés teljesítése</td><td>A fiók törléséig</td></tr>
+            <tr><td>Megtekintések: melyik napon nyitottál meg egy könyvet (a szerző csak az összesített számot látja)</td><td>Megtekintésszám a szerzőknek, olvasónként naponta egyszer számolva</td><td>Jogos érdek</td><td>A fiók vagy a könyv törléséig</td></tr>
+            <tr><td>Az eszköz értesítési azonosítója (push token)</td><td>Push értesítések küldése</td><td>Hozzájárulás (GDPR 6. cikk (1) a): az értesítések bekapcsolása; bármikor kikapcsolható</td><td>Kikapcsolásig, kijelentkezésig vagy a fiók törléséig</td></tr>
+            <tr><td>Hibajelentések: ha az alkalmazás hibát észlel, a hiba technikai leírása, az alkalmazás verziója, az eszköz típusa és a fiók azonosítója</td><td>Hibák felderítése és javítása</td><td>Jogos érdek</td><td>A hiba kivizsgálásáig, legkésőbb a fiók törléséig</td></tr>
+            <tr><td>Technikai naplók (IP-cím, időpont, kérés típusa) a szerver szolgáltatójánál</td><td>Biztonság, hibaelhárítás</td><td>Jogos érdek</td><td>A szolgáltató naplómegőrzési ideje szerint, rövid ideig</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Csak az eszközödön tárolódik, a szerverre nem kerül: a megjelenítési és olvasási beállításaid, a letöltött (offline) könyvek, az írói jegyzetek és a 18+ tartalmakra vonatkozó beállításod.</p>
+      <p>Nem használunk hirdetést, analitikát vagy nyomkövetést, és adataidat nem adjuk el.</p>
+    </div>
+
+    <h3><span class="num">3.</span><span>Mit látnak mások</span></h3>
+    <div class="body">
+      <p>Bárki, aki használja a Regélőt, láthatja: a nyilvános profilodat, a publikált műveidet (a borítóval és a fejezetképekkel együtt), a hozzászólásaidat, az értékeléseidet és véleményeidet, valamint a követőid számát. A piszkozataid, a szereplőid és idővonalaid, az üzeneteid, az olvasói adataid és a letiltásaid nem nyilvánosak. A nyilvános képek egy nehezen kitalálható webcímen érhetők el.</p>
+    </div>
+
+    <h3><span class="num">4.</span><span>Adatfeldolgozók és adattovábbítás</span></h3>
+    <div class="body">
+      <ul>
+        <li><strong>Supabase Inc.</strong>: adatbázis, bejelentkezés, képtárolás, szerveroldali függvények és a rendszer-e-mailek (regisztráció megerősítése, jelszó-visszaállítás) kiküldése. Az adatokat az Európai Unióban, Frankfurtban (Németország) lévő szerveren tároljuk.</li>
+        <li><strong>Google (Firebase Cloud Messaging)</strong>: a push értesítések kézbesítése az eszközödre. Ehhez az értesítési azonosító és az értesítés szövege jut el a Google-hoz.</li>
+        <li><strong>Google Fonts</strong>: az alkalmazás betűtípusait az eszközöd tölti le a Google betűtípus-szolgáltatásából.</li>
+      </ul>
+      <p>A Google az adatokat az Európai Unión kívül, például az Egyesült Államokban is kezelheti. Ilyenkor az adattovábbítás az EU–USA adatvédelmi keretrendszer vagy az Európai Bizottság általános szerződési feltételei alapján történik.</p>
+    </div>
+
+    <h3><span class="num">5.</span><span>Életkor</span></h3>
+    <div class="body">
+      <p>A Regélő 16 éven aluliaknak nem használható. A 18+ besorolású műveket csak az láthatja, aki az alkalmazásban megerősíti, hogy elmúlt 18 éves.</p>
+    </div>
+
+    <h3><span class="num">6.</span><span>Az adatok biztonsága</span></h3>
+    <div class="body">
+      <p>Az alkalmazás és a szerver között minden adat titkosított csatornán (HTTPS) utazik. A jelszavakat csak visszafejthetetlen formában tároljuk. A szerveren sorszintű hozzáférés-szabályozás biztosítja, hogy mindenki csak a saját, illetve a nyilvános adatokat érje el.</p>
+    </div>
+
+    <h3><span class="num">7.</span><span>A jogaid</span></h3>
+    <div class="body">
+      <ul>
+        <li><strong>Hozzáférés:</strong> tájékoztatást és másolatot kérhetsz a rólad tárolt adatokról.</li>
+        <li><strong>Helyesbítés:</strong> a profiladataidat és a műveidet az alkalmazásban bármikor javíthatod.</li>
+        <li><strong>Törlés:</strong> a fiókodat és minden hozzá kötött adatot törölhetsz (lásd lent: Fiók és adatok törlése).</li>
+        <li><strong>Korlátozás és tiltakozás:</strong> kérheted az adatkezelés korlátozását, és tiltakozhatsz a jogos érdeken alapuló adatkezelés ellen.</li>
+        <li><strong>Adathordozhatóság:</strong> kérheted az általad megadott adatok átadását géppel olvasható formában.</li>
+        <li><strong>Hozzájárulás visszavonása:</strong> a push értesítéseket bármikor kikapcsolhatod: Én › Beállítások › Push értesítések.</li>
+      </ul>
+      <p>A kérésedre legkésőbb 30 napon belül válaszolunk. Panaszt tehetsz a Nemzeti Adatvédelmi és Információszabadság Hatóságnál (NAIH; 1055 Budapest, Falk Miksa utca 9–11.; postacím: 1363 Budapest, Pf. 9.; ugyfelszolgalat@naih.hu; www.naih.hu), vagy bírósághoz fordulhatsz.</p>
+    </div>
+
+    <h3><span class="num">8.</span><span>Változások</span></h3>
+    <div class="body">
+      <p>Ha a tájékoztató lényegesen változik, az alkalmazásban értesítünk. Az aktuális változat mindig ezen az oldalon olvasható.</p>
+    </div>
+  </section>
+
+  <!-- ===================================================== FELTÉTELEK -->
+  <section class="doc" id="feltetelek">
+    <h2>Felhasználási feltételek</h2>
+    <p class="doc-intro">A regisztrációval ezeket a feltételeket fogadod el.</p>
+
+    <h3><span class="num">1.</span><span>A szolgáltatás</span></h3>
+    <div class="body"><p>A Regélő írói és olvasói közösség: történeteket írhatsz és publikálhatsz, mások műveit olvashatod, értékelheted, hozzászólhatsz, követhetsz szerzőket és üzenhetsz egymásnak. A szolgáltatás jelenleg ingyenes.</p></div>
+
+    <h3><span class="num">2.</span><span>Ki használhatja</span></h3>
+    <div class="body"><p>A regisztrációhoz legalább 16 évesnek kell lenned. A 18+ besorolású művek csak annak jelennek meg, aki megerősíti, hogy elmúlt 18 éves.</p></div>
+
+    <h3><span class="num">3.</span><span>A fiókod</span></h3>
+    <div class="body"><p>Valós e-mail címmel regisztrálj, és ne add ki másnak a jelszavad. A fiókodért és a rajta keresztül végzett tevékenységért te felelsz. A fiókodat bármikor törölheted.</p></div>
+
+    <h3><span class="num">4.</span><span>A műveid</span></h3>
+    <div class="body"><p>A feltöltött és publikált műveid a tieid maradnak. A publikálással engedélyt adsz arra, hogy a Regélő a művet a közösség tagjainak megjelenítse, amíg publikálva van. Ha visszavonod a publikálást vagy törlöd a művet, az eltűnik a nyilvános felületről. Csak olyan tartalmat tölts fel, amelynek a szerzője vagy, vagy amelyhez jogod van.</p></div>
+
+    <h3><span class="num">5.</span><span>Közösségi szabályok</span></h3>
+    <div class="body">
+      <p>Tilos:</p>
+      <ul>
+        <li>mások zaklatása, fenyegetése vagy lejáratása;</li>
+        <li>gyűlöletkeltő tartalom;</li>
+        <li>kiskorúakat szexualizáló tartalom bármilyen formában;</li>
+        <li>pornográf, öncélúan szexuális tartalom (a felnőtt témákat feldolgozó irodalmi művek 18+ besorolással megengedettek);</li>
+        <li>mások személyes adatainak közzététele;</li>
+        <li>kéretlen reklám és spam;</li>
+        <li>jogsértő, illetve mások szerzői jogát sértő tartalom.</li>
+      </ul>
+      <p>A felnőtt tartalmú műveket 18+ besorolással és a megfelelő tartalmi figyelmeztetésekkel kell ellátni.</p>
+    </div>
+
+    <h3><span class="num">6.</span><span>Bejelentés, letiltás, moderálás</span></h3>
+    <div class="body"><p>A szabálysértő hozzászólást, művet vagy profilt az alkalmazásban, a ⋮ menüben jelentheted; a bejelentéseket moderátor vizsgálja. Bárkit letilthatsz: ilyenkor nem írhat neked, és nem látod a hozzászólásait. A szabályokat megszegő tartalmat eltávolíthatjuk, ismételt vagy súlyos szabálysértésnél a fiókot felfüggeszthetjük vagy törölhetjük.</p></div>
+
+    <h3><span class="num">7.</span><span>Felelősség</span></h3>
+    <div class="body"><p>A felhasználók által közzétett tartalmakért azok szerzői felelnek. A szolgáltatást a lehető legnagyobb gondossággal üzemeltetjük, de folyamatos, hibamentes működést nem tudunk garantálni; fontos írásaidról érdemes saját másolatot is tartanod.</p></div>
+
+    <h3><span class="num">8.</span><span>Változások, kapcsolat</span></h3>
+    <div class="body">
+      <p>A feltételek változásáról az alkalmazásban tájékoztatunk. Kérdés, panasz vagy jogi bejelentés (például szerzői jogsértés) esetén írj ide:</p>
+      <div class="contact">
+        <code id="contact-email-2">regeloapp@gmail.com</code>
+        <button type="button" data-copy="contact-email-2">Másolás</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== FIÓK TÖRLÉSE -->
+  <section class="doc" id="fiok-torlese">
+    <h2>Fiók és adatok törlése</h2>
+    <p class="doc-intro">Így törölheted a Regélő-fiókodat és a hozzá kötött adatokat.</p>
+
+    <h3><span class="num">1.</span><span>Törlés az alkalmazásban</span></h3>
+    <div class="body">
+      <ol class="steps">
+        <li><span>Nyisd meg a Regélőt, és lépj be a fiókodba.</span></li>
+        <li><span>Menj az <strong>Én</strong> fülre, és koppints a <strong>Beállítások</strong> gombra.</span></li>
+        <li><span>A <strong>Fiók</strong> részben koppints a <strong>Fiók végleges törlése</strong> lehetőségre.</span></li>
+        <li><span>Írd be a megerősítéshez: <strong>TÖRLÉS</strong>, majd koppints a <strong>Végleges törlés</strong> gombra. A fiókod és az adataid azonnal törlődnek.</span></li>
+      </ol>
+    </div>
+
+    <h3><span class="num">2.</span><span>Törlés kérése e-mailben</span></h3>
+    <div class="body">
+      <p>Ha már nem fér hozzá az alkalmazáshoz, írj a regisztrációkor megadott e-mail címedről ide, „Fiók törlése” tárggyal:</p>
+      <div class="contact">
+        <code id="contact-email-3">regeloapp@gmail.com</code>
+        <button type="button" data-copy="contact-email-3">Másolás</button>
+      </div>
+      <p>A kérést legkésőbb 30 napon belül teljesítjük, és visszaigazoljuk.</p>
+    </div>
+
+    <h3><span class="num">3.</span><span>Mi törlődik</span></h3>
+    <div class="body">
+      <p>Minden, ami a fiókodhoz tartozik: a fiók és a nyilvános profil, a műveid és fejezeteid, a feltöltött képeid, a hozzászólásaid, értékeléseid és véleményeid, kedveléseid, követéseid, üzeneteid, értesítéseid, olvasói adataid, letiltásaid és az eszközeid értesítési azonosítói.</p>
+      <p>Az alkalmazás az eszközödön tárolt helyi adatokat is törli. A szolgáltató biztonsági mentéseiből az adatok legkésőbb 30 napon belül tűnnek el. Semmilyen, a fiókodhoz kötött adatot nem őrzünk meg a törlés után.</p>
+    </div>
+  </section>
+
+  <footer>
+    Regélő · hu.regelo.app · Kapcsolat: regeloapp@gmail.com · Az alkalmazásban: Beállítások › Kapcsolat és visszajelzés
+  </footer>
+</div>
+
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var target = document.getElementById(button.getAttribute("data-copy"));
+      var text = target ? target.textContent.trim() : "";
+      var done = function () {
+        button.textContent = "Kimásolva";
+        setTimeout(function () { button.textContent = "Másolás"; }, 1800);
+      };
+      var selectFallback = function () {
+        var range = document.createRange();
+        range.selectNodeContents(target);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        button.textContent = "Kijelölve – másold ki";
+      };
+      try {
+        navigator.clipboard.writeText(text).then(done, selectFallback);
+      } catch (error) {
+        selectFallback();
+      }
+    });
+  });
+</script>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A google-services.json (hu.regelo.app kliens) értékei, a Google Services plugin helyett kézzel. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="google_app_id" translatable="false">1:257160216230:android:e032f32a2a3f3a9fe1fe67</string>
+    <string name="gcm_defaultSenderId" translatable="false">257160216230</string>
+    <string name="google_api_key" translatable="false">AIzaSyC111Ck94aBB0FO6X43M95ulVA3MQU-yFc</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyC111Ck94aBB0FO6X43M95ulVA3MQU-yFc</string>
+    <string name="project_id" translatable="false" tools:ignore="UnusedResources">regelo</string>
+    <string name="google_storage_bucket" translatable="false">regelo.firebasestorage.app</string>
+</resources>

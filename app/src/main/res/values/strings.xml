@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Regélő</string>
+    <string name="channel_community">Közösségi értesítések</string>
+    <string name="channel_community_desc">Üzenetek, kommentek, követők és szerzői hírek</string>
+</resources>

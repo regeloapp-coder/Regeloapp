@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Szándékos, ellenőrzött kivételek a lint-ellenőrzés alól. -->
+<lint>
+    <!-- Az adaptív ikon a mipmap-anydpi-v26 mappában van; minSdk 26 mellett ez is pontosan ugyanúgy működik. -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+    <!-- A PDF-importáló (pdfbox-android) által behúzott BouncyCastle-könyvtár belső osztálya;
+         az app saját hálózati forgalmát nem érinti (az OkHttp a rendszer tanúsítványait ellenőrzi). -->
+    <issue id="TrustAllX509TrustManager">
+        <ignore regexp="bcpkix" />
+    </issue>
+</lint>
