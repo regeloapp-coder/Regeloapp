@@ -50,7 +50,7 @@ class BookRepository {
         val books = AppGraph.supabase.from("books").select {
             filter {
                 eq("publish_status", PublishStatus.PUBLISHED)
-                if (official.isNotEmpty()) filterNot("id", FilterOperator.IN, "(${official.joinToString(",")})")
+                if (official.isNotEmpty()) notIn("id", official.toList())
                 // 18+ művek csak életkor-megerősítés után jelennek meg.
                 if (!adult) neq("age_rating", "18+")
                 if (q.isNotEmpty()) {
@@ -255,4 +255,5 @@ class BookRepository {
  * a % pedig LIKE-helyettesítő: ezeket szóközre cseréljük, hogy a keresés ne törjön el.
  */
 internal fun sanitizeSearch(raw: String): String =
-    raw.replace(Regex("[%,()\"\\\\*:]"), " ").replace(Regex("\\s+"), " ").trim().take(100)
+    raw.replace(Regex("[%,()\"\\*:]"), " ").replace(Regex("\\s+"), " ").trim().take(100)
+
