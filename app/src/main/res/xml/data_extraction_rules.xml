@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+: a bejelentkezés (titkosított munkamenet), a helyi adatbázis és a beállítások sem a felhőmentésbe,
+<!-- Android 12+: a bejelentkezés (titkosított munkamenet), a titkosított helyi adatbázis és a beállítások sem a felhőmentésbe,
      sem az eszközátvitelbe nem kerülnek. A Keystore-kulcs amúgy sem menthető, így a régi adat úgysem lenne olvasható. -->
 <data-extraction-rules>
     <cloud-backup>

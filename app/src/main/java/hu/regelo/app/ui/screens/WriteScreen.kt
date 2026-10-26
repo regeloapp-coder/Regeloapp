@@ -19,8 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
@@ -31,20 +29,17 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,15 +66,11 @@ import hu.regelo.app.data.Genres
 import hu.regelo.app.data.LocalBook
 import hu.regelo.app.data.PublishStatus
 import hu.regelo.app.ui.components.BookCover
-import hu.regelo.app.ui.components.ConfirmDialog
-import hu.regelo.app.ui.components.EmptyState
 import hu.regelo.app.ui.components.LocalSnackbar
 import hu.regelo.app.ui.components.Pill
-import hu.regelo.app.ui.components.runAction
 import hu.regelo.app.ui.nav.Navigator
 import hu.regelo.app.ui.nav.Route
 import hu.regelo.app.util.formatIsoDay
-import hu.regelo.app.util.friendlyMessage
 import hu.regelo.app.util.relativeTime
 import kotlinx.coroutines.launch
 
@@ -87,132 +78,88 @@ import kotlinx.coroutines.launch
 fun WriteScreen(nav: Navigator) {
     var openChallenges by remember { mutableStateOf<List<hu.regelo.app.data.ChallengeDto>>(emptyList()) }
     LaunchedEffect(Unit) { openChallenges = runCatching { AppGraph.community.openForSubmission() }.getOrDefault(emptyList()) }
-    val snackbar = LocalSnackbar.current
     val scope = rememberCoroutineScope()
-    val books by AppGraph.writing.myBooks().collectAsState(initial = emptyList())
     val sync by AppGraph.writing.syncState.collectAsState()
     val todayWords by AppGraph.writing.todayWords().collectAsState(initial = 0)
     val settings by AppGraph.settings.settings.collectAsState(initial = AppSettings())
-    var newBook by remember { mutableStateOf(false) }
     var goalDialog by remember { mutableStateOf(false) }
-    var deleteTarget by remember { mutableStateOf<LocalBook?>(null) }
-    var exportTarget by remember { mutableStateOf<LocalBook?>(null) }
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            TopAppBar(
-                title = { Text("Írás", style = MaterialTheme.typography.headlineSmall) },
-                actions = {
-                    SyncBadge(sync.syncing, sync.pending, sync.offline, sync.error) { AppGraph.writing.requestSync(immediate = true) }
-                    IconButton(onClick = { nav.push(Route.Import(null)) }) { Icon(Icons.Default.UploadFile, "Dokumentum importálása") }
-                    IconButton(onClick = { nav.push(Route.SeriesManager) }) { Icon(Icons.Default.AutoStories, "Sorozataim") }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-            )
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
-                // Most nevezhető írói kihívás felhívása
-                openChallenges.firstOrNull()?.let { ch ->
-                    item {
-                        Card(
-                            onClick = { nav.push(Route.ChallengeDetail(ch.id)) },
-                            modifier = Modifier.fillMaxWidth().padding(16.dp, 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                        ) {
-                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.EmojiEvents, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text("Írói kihívás: ${ch.title}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    Text(phaseLine(ch, hu.regelo.app.data.ChallengePhase.SUBMISSION) + " – nevezz be egy műveddel!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                }
-                            }
-                        }
+    Column(Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("Írás", style = MaterialTheme.typography.headlineSmall) },
+            actions = {
+                SyncBadge(sync.syncing, sync.pending, sync.offline, sync.error) { AppGraph.writing.requestSync(immediate = true) }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+        )
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
+            item {
+                Card(
+                    onClick = { nav.select(hu.regelo.app.ui.nav.Tab.ME) },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Saját történetek és piszkozatok", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "A műveid, importálás, sorozatok és szerkesztési eszközök a Profil oldalon találhatók.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
+            }
+            openChallenges.firstOrNull()?.let { ch ->
                 item {
                     Card(
-                        onClick = { goalDialog = true },
+                        onClick = { nav.push(Route.ChallengeDetail(ch.id)) },
                         modifier = Modifier.fillMaxWidth().padding(16.dp, 4.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                     ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Mai írás", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                                Text("$todayWords / ${settings.dailyGoal} szó", style = MaterialTheme.typography.labelLarge)
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.EmojiEvents, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Írói kihívás: ${ch.title}", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(
+                                    phaseLine(ch, hu.regelo.app.data.ChallengePhase.SUBMISSION) + " – nevezz be egy műveddel!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
                             }
-                            Spacer(Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { (todayWords.toFloat() / settings.dailyGoal.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth().height(6.dp),
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                if (todayWords >= settings.dailyGoal) "Megvan a mai cél – szép munka! ✨" else "Koppints a napi cél módosításához.",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
                         }
                     }
                 }
-                if (books.isEmpty()) {
-                    item {
-                        EmptyState(
-                            Icons.AutoMirrored.Filled.MenuBook, "Kezdd el az első történeted",
-                            "Írhatsz itt a telefonon, vagy feltölthetsz egy kész kéziratot (DOCX, EPUB, PDF, TXT) – automatikusan fejezetekre bontjuk.",
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { newBook = true }) { Text("Új történet") }
-                                OutlinedButton(onClick = { nav.push(Route.Import(null)) }) { Text("Importálás") }
-                            }
+            }
+            item {
+                Card(
+                    onClick = { goalDialog = true },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp, 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Mai írás", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            Text("$todayWords / ${settings.dailyGoal} szó", style = MaterialTheme.typography.labelLarge)
                         }
-                    }
-                } else {
-                    item { Text("Történeteim (${books.size})", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp)) }
-                    items(books, key = { it.id }) { b ->
-                        MyBookCard(
-                            b,
-                            onOpen = { nav.push(Route.BookEditor(b.id)) },
-                            onPreview = { nav.push(Route.Reader(b.id)) },
-                            onStats = { nav.push(Route.Stats(b.id)) },
-                            onWorld = { nav.push(Route.World(b.id)) },
-                            onExport = { exportTarget = b },
-                            onDelete = { deleteTarget = b },
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { (todayWords.toFloat() / settings.dailyGoal.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            if (todayWords >= settings.dailyGoal) "Megvan a mai cél – szép munka! ✨" else "Koppints a napi cél módosításához.",
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
             }
         }
-        ExtendedFloatingActionButton(
-            onClick = { newBook = true },
-            icon = { Icon(Icons.Default.Add, null) },
-            text = { Text("Új történet") },
-            containerColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-        )
     }
 
-    if (newBook) NewBookDialog(onDismiss = { newBook = false }) { title, genre, description ->
-        scope.launch {
-            try {
-                val b = AppGraph.writing.createBook(title, genre, description)
-                val firstChapter = AppGraph.writing.chapterList(b.id).firstOrNull()
-                if (firstChapter != null) nav.push(Route.ChapterEditor(b.id, firstChapter.id))
-                else nav.push(Route.BookEditor(b.id))
-            } catch (e: Exception) { snackbar.showSnackbar(e.friendlyMessage()) }
-        }
-    }
     if (goalDialog) GoalDialog(settings.dailyGoal, onDismiss = { goalDialog = false }) { g -> scope.launch { AppGraph.settings.setDailyGoal(g) } }
-    exportTarget?.let { b -> ExportDialog(b.id, b.title, onDismiss = { exportTarget = null }) }
-    deleteTarget?.let { b ->
-        ConfirmDialog(
-            title = "Törlöd a történetet?",
-            text = "„${b.title}” és minden fejezete véglegesen törlődik – a telefonról és a felhőből is. Ez nem vonható vissza.",
-            confirm = "Végleges törlés", destructive = true,
-            onConfirm = { scope.runAction(snackbar, "Történet törölve.") { AppGraph.writing.deleteBook(b.id) } },
-            onDismiss = { deleteTarget = null },
-        )
-    }
 }
 
 @Composable
@@ -242,7 +189,7 @@ fun SyncBadge(syncing: Boolean, pending: Int, offline: Boolean, error: String?, 
 }
 
 @Composable
-private fun MyBookCard(b: LocalBook, onOpen: () -> Unit, onPreview: () -> Unit, onStats: () -> Unit, onWorld: () -> Unit, onExport: () -> Unit, onDelete: () -> Unit) {
+internal fun MyBookCard(b: LocalBook, onOpen: () -> Unit, onPreview: () -> Unit, onStats: () -> Unit, onWorld: () -> Unit, onExport: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Card(
         onClick = onOpen,
@@ -286,7 +233,7 @@ private fun MyBookCard(b: LocalBook, onOpen: () -> Unit, onPreview: () -> Unit, 
 }
 
 @Composable
-private fun NewBookDialog(onDismiss: () -> Unit, onCreate: (String, String, String) -> Unit) {
+internal fun NewBookDialog(onDismiss: () -> Unit, onCreate: (String, String, String) -> Unit) {
     var title by remember { mutableStateOf("") }
     var genre by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }

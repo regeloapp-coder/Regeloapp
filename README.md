@@ -5,7 +5,7 @@ Magyar írói és olvasói platform (Wattpad / Inkitt jellegű), Kotlin + Jetpac
 - Csomagnév: `hu.regelo.app`
 - Backend: Supabase (Postgres + RLS, Auth, Storage, Realtime), projekt: `pqmfezkvaslqedalwwnn` (Frankfurt)
 - Push: Firebase Cloud Messaging (`regelo` projekt) + `send-community-push` Edge Function
-- Offline-first: minden írás azonnal a telefonra mentődik (Room), a felhőbe a háttérben szinkronizál (WorkManager)
+- Offline-first: minden írás azonnal a telefonon, SQLCipherrel titkosított Room-adatbázisba mentődik, a felhőbe a háttérben szinkronizál (WorkManager)
 
 ## Fordítás
 Android Studio › Open › ez a mappa › (Gradle sync) › Build › Build App Bundle(s) / APK(s) › Build APK(s).
@@ -48,6 +48,9 @@ a szerveroldali hitelesítés és RLS-szabályok adják. Service-role kulcsot ti
 - Az alkalmazás API 37-et céloz. A `versionCode` frissítése és az aláírt bundle ellenőrzése még szükséges a kiadáshoz.
 - A completion RPC-t használó kliens kiadása előtt a cél Supabase-környezeten legyen alkalmazva a
   `supabase/2026-10-26_app_v1_4.sql` migráció.
+- A helyi Room-adatbázis SQLCipherrel titkosított. Meglévő telepítésen az indulási migráció WAL-ellenőrzőpontot
+  készít, külön titkosított példányon konvertál, ellenőrzi, majd atomi fájlcserével vált; hiba esetén az eredeti
+  adatbázis marad érintetlen. A véletlen adatvesztés elkerülésére ne töröld az alkalmazás adatait vagy Keystore-kulcsát.
 
 ## Adatbázis
 A `supabase/` mappában lévő SQL fájlok idempotensek (többször is futtathatók) a Supabase SQL Editorban.
@@ -67,7 +70,11 @@ Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohiva
   amely a budapesti naptári évet és az adatbázisban szereplő publikált/befejezett állapotot használja.
   A rate limit párhuzamos kéréseknél is atomikusan érvényesül. A kliens nem ment tokent titkosítatlanul,
   az adat-export a teljes, szerveroldali GDPR-exportot használja, és a Room frissítés nem törli csendben
-  az ismeretlen sémájú helyi adatokat.
+  az ismeretlen sémájú helyi adatokat. A helyi Room-adatbázis SQLCipherrel titkosított; a kulcs Keystore-ban
+  védett AES-GCM burkolással tárolódik, sérült vagy hiányzó kulcs esetén az alkalmazás az adatok törlése helyett
+  hibával leáll. A korábbi sima SQLite-fájlt ellenőrzött, atomi migráció alakítja át.
+- **Profilon kezelt írások** – A saját művek és piszkozatok, import, sorozatok, export, statisztika és törlés
+  a Profil fülön érhető el; az Írás fül a napi célra és írói kihívásokra összpontosít.
 - **1.3.0** – Hivatalos kiadványok, adatvédelem és biztonság:
   a Regélő négy, folyamatosan bővülő hivatalos „könyve” (Hírek, Kihívások, Heti válogatás, Kávéház) – az új részeket a szerver
   automatikusan teszi közzé (hírből, kihívásból, heti válogatásból, beszélgetésindítóból); „A Regélőtől” sáv a Könyvtárban
