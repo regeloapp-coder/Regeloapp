@@ -5,6 +5,17 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val releaseSigningValues = listOf(
+    "REGELO_STORE_FILE",
+    "REGELO_STORE_PASSWORD",
+    "REGELO_KEY_ALIAS",
+    "REGELO_KEY_PASSWORD",
+).map { providers.environmentVariable(it).orNull?.takeIf(String::isNotBlank) }
+val releaseSigningConfigured = releaseSigningValues.all { it != null }
+require(releaseSigningConfigured || releaseSigningValues.all { it == null }) {
+    "Release signing requires REGELO_STORE_FILE, REGELO_STORE_PASSWORD, REGELO_KEY_ALIAS, and REGELO_KEY_PASSWORD."
+}
+
 android {
     namespace = "hu.regelo.app"
     compileSdk {
@@ -23,11 +34,22 @@ android {
         buildConfigField("String", "SUPABASE_KEY", "\"sb_publishable_vtSi7ZP9AiR0bYYlT_WErQ_ltqX6ZBF\"")
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigningValues[0]))
+                storePassword = requireNotNull(releaseSigningValues[1])
+                keyAlias = requireNotNull(releaseSigningValues[2])
+                keyPassword = requireNotNull(releaseSigningValues[3])
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Oldalról telepíthető kiadás: a gép saját debug-kulcsával aláírva.
-            signingConfig = signingConfigs.getByName("debug")
+            // Store key is injected via environment; never sign release builds with the debug key.
+            if (releaseSigningConfigured) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

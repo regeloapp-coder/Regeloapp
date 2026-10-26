@@ -196,7 +196,9 @@ fun WriteScreen(nav: Navigator) {
         scope.launch {
             try {
                 val b = AppGraph.writing.createBook(title, genre, description)
-                nav.push(Route.BookEditor(b.id))
+                val firstChapter = AppGraph.writing.chapterList(b.id).firstOrNull()
+                if (firstChapter != null) nav.push(Route.ChapterEditor(b.id, firstChapter.id))
+                else nav.push(Route.BookEditor(b.id))
             } catch (e: Exception) { snackbar.showSnackbar(e.friendlyMessage()) }
         }
     }

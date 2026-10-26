@@ -11,6 +11,44 @@ Magyar írói és olvasói platform (Wattpad / Inkitt jellegű), Kotlin + Jetpac
 Android Studio › Open › ez a mappa › (Gradle sync) › Build › Build App Bundle(s) / APK(s) › Build APK(s).
 Az APK: `app/build/outputs/apk/debug/app-debug.apk`
 
+## Android-kiadás és aláírás
+Ez a repository natív Android/Jetpack Compose alkalmazás; iOS-, Expo-, Capacitor-, React Native- vagy Flutter-projekt nincs benne.
+Google Playre aláírt Android App Bundle-t (AAB) tölts fel, ne fejlesztői debug APK-t.
+
+### Aláírt AAB Android Studióval
+1. Nyisd meg a repository gyökérmappáját Android Studióban, várd meg a Gradle szinkronizálását, és futtasd a teszteket.
+2. A **Build › Generate Signed Bundle / APK… › Android App Bundle** útvonalon válaszd a `release` build variantot.
+3. Első kiadáskor hozz létre külön feltöltési (upload) kulcsot és keystore-t. A fájl, a jelszavak és az alias
+   biztonságos, Git-en kívüli helyre kerüljenek; a Google Play App Signing bekapcsolása ajánlott.
+4. Készítsd el az AAB-t, ellenőrizd a Play Console belső tesztcsatornáján, majd csak sikeres ellenőrzés után
+   indítsd a szélesebb körű kiadást.
+5. Minden új feltöltés előtt növeld az `app/build.gradle.kts` fájlban a `versionCode` értékét. Jelenlegi értéke
+   `130`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
+
+### Parancssoros/CI aláírás
+Biztonságos build/CI titokként add meg mind a négy környezeti változót:
+`REGELO_STORE_FILE`, `REGELO_STORE_PASSWORD`, `REGELO_KEY_ALIAS`, `REGELO_KEY_PASSWORD`. Például a fájl elérési
+útja `C:\secure\regelo-upload.jks` lehet. A jelszavakat ne írd parancssorba, scriptbe vagy repository-fájlba.
+Ezután futtasd:
+
+```powershell
+.\gradlew.bat :app:bundleRelease
+```
+
+A kimenet helye: `app\build\outputs\bundle\release\app-release.aab`. Vagy mind a négy változó legyen beállítva,
+vagy egyik sem; részleges beállításnál a Gradle szándékosan hibával leáll. Változók nélkül az `assembleRelease`
+ellenőrző build lefut, de nem állít elő Playre feltölthető, a saját kiadási kulcsoddal aláírt csomagot.
+Az Android Gradle build nem használ `.env` fájlt. A Supabase URL és publishable klienskulcs nem titok; adatvédelmüket
+a szerveroldali hitelesítés és RLS-szabályok adják. Service-role kulcsot tilos a mobilalkalmazásba tenni.
+
+### Play Console kiadás előtti kapu
+- Ellenőrizd és publikáld az adatkezelési tájékoztató és támogatás URL-jét, valamint a Data safety adatlapot.
+- Adj meg működő, alkalmazáson kívüli webes fióktörlési kérelem URL-t is. Az alkalmazáson belüli törlőgomb önmagában
+  nem teljesíti ezt a Play-követelményt; ilyen publikus URL jelenleg nincs azonosítva.
+- Az alkalmazás API 37-et céloz. A `versionCode` frissítése és az aláírt bundle ellenőrzése még szükséges a kiadáshoz.
+- A completion RPC-t használó kliens kiadása előtt a cél Supabase-környezeten legyen alkalmazva a
+  `supabase/2026-10-26_app_v1_4.sql` migráció.
+
 ## Adatbázis
 A `supabase/` mappában lévő SQL fájlok idempotensek (többször is futtathatók) a Supabase SQL Editorban.
 A kliens frissítésének kiadása előtt futtasd a `supabase/2026-10-26_app_v1_4.sql` migrációt a v1.3 után;
