@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -66,10 +67,13 @@ import hu.regelo.app.data.Genres
 import hu.regelo.app.data.LocalBook
 import hu.regelo.app.data.PublishStatus
 import hu.regelo.app.ui.components.BookCover
+import hu.regelo.app.ui.components.ConfirmDialog
 import hu.regelo.app.ui.components.LocalSnackbar
 import hu.regelo.app.ui.components.Pill
+import hu.regelo.app.ui.components.runAction
 import hu.regelo.app.ui.nav.Navigator
 import hu.regelo.app.ui.nav.Route
+import hu.regelo.app.util.friendlyMessage
 import hu.regelo.app.util.formatIsoDay
 import hu.regelo.app.util.relativeTime
 import kotlinx.coroutines.launch
@@ -81,8 +85,13 @@ fun WriteScreen(nav: Navigator) {
     val scope = rememberCoroutineScope()
     val sync by AppGraph.writing.syncState.collectAsState()
     val todayWords by AppGraph.writing.todayWords().collectAsState(initial = 0)
+    val myBooks by AppGraph.writing.myBooks().collectAsState(initial = emptyList())
     val settings by AppGraph.settings.settings.collectAsState(initial = AppSettings())
     var goalDialog by remember { mutableStateOf(false) }
+    var newBook by remember { mutableStateOf(false) }
+    var deleteBook by remember { mutableStateOf<LocalBook?>(null) }
+    var exportBook by remember { mutableStateOf<LocalBook?>(null) }
+    val snackbar = LocalSnackbar.current
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -94,20 +103,45 @@ fun WriteScreen(nav: Navigator) {
         )
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
             item {
-                Card(
-                    onClick = { nav.select(hu.regelo.app.ui.nav.Tab.ME) },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp, 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Saját történetek és piszkozatok", style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(4.dp))
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)) {
+                    Text("Saját történetek és piszkozatok (${myBooks.size})", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(onClick = { newBook = true }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.Edit, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Új történet", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        OutlinedButton(
+                            onClick = { nav.push(Route.Import(null)) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Importálás", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                    OutlinedButton(
+                        onClick = { nav.push(Route.SeriesManager) },
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                    ) { Text("Sorozataim kezelése") }
+                    if (myBooks.isEmpty()) {
                         Text(
-                            "A műveid, importálás, sorozatok és szerkesztési eszközök a Profil oldalon találhatók.",
-                            style = MaterialTheme.typography.bodyMedium,
+                            "Itt kezelheted a piszkozataidat és publikált műveidet.",
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
+            }
+            items(myBooks, key = { "my-work-${it.id}" }) { book ->
+                MyBookCard(
+                    book,
+                    onOpen = { nav.push(Route.BookEditor(book.id)) },
+                    onPreview = { nav.push(Route.Reader(book.id)) },
+                    onStats = { nav.push(Route.Stats(book.id)) },
+                    onWorld = { nav.push(Route.World(book.id)) },
+                    onExport = { exportBook = book },
+                    onDelete = { deleteBook = book },
+                )
             }
             openChallenges.firstOrNull()?.let { ch ->
                 item {
@@ -160,6 +194,33 @@ fun WriteScreen(nav: Navigator) {
     }
 
     if (goalDialog) GoalDialog(settings.dailyGoal, onDismiss = { goalDialog = false }) { g -> scope.launch { AppGraph.settings.setDailyGoal(g) } }
+    if (newBook) NewBookDialog(onDismiss = { newBook = false }) { title, genre, description ->
+        scope.launch {
+            try {
+                val book = AppGraph.writing.createBook(title, genre, description)
+                val firstChapter = AppGraph.writing.chapterList(book.id).firstOrNull()
+                if (firstChapter != null) nav.push(Route.ChapterEditor(book.id, firstChapter.id))
+                else nav.push(Route.BookEditor(book.id))
+            } catch (e: Exception) {
+                snackbar.showSnackbar(e.friendlyMessage().also {
+                    hu.regelo.app.util.ErrorReporter.report(e, "WriteScreen.createBook")
+                })
+            }
+        }
+    }
+    exportBook?.let { book -> ExportDialog(book.id, book.title, onDismiss = { exportBook = null }) }
+    deleteBook?.let { book ->
+        ConfirmDialog(
+            title = "Történet törlése",
+            text = "„${book.title}” és minden fejezete véglegesen törlődik a telefonról és a felhőből. Ez nem vonható vissza.",
+            confirm = "Végleges törlés",
+            destructive = true,
+            onConfirm = {
+                scope.runAction(snackbar, "Történet törölve.") { AppGraph.writing.deleteBook(book.id) }
+            },
+            onDismiss = { deleteBook = null },
+        )
+    }
 }
 
 @Composable

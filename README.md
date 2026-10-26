@@ -1,4 +1,4 @@
-# Regélő – Android alkalmazás (v1.3.3)
+# Regélő – Android alkalmazás (v1.3.4)
 
 Magyar írói és olvasói platform (Wattpad / Inkitt jellegű), Kotlin + Jetpack Compose.
 
@@ -23,7 +23,7 @@ Google Playre aláírt Android App Bundle-t (AAB) tölts fel, ne fejlesztői deb
 4. Készítsd el az AAB-t, ellenőrizd a Play Console belső tesztcsatornáján, majd csak sikeres ellenőrzés után
    indítsd a szélesebb körű kiadást.
 5. Minden új feltöltés előtt növeld az `app/build.gradle.kts` fájlban a `versionCode` értékét. Jelenlegi értéke
-   `133`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
+   `134`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
 
 ### Parancssoros/CI aláírás
 Biztonságos build/CI titokként add meg mind a négy környezeti változót:
@@ -87,6 +87,9 @@ Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohiva
   titkosítva tárolódnak, nem kerülnek biztonsági mentésbe, és kijelentkezéskor/fióktörléskor törlődnek; a korábbi
   egyszerű JPEG-fájlok az első feltöltéskor atomi cserével titkosítottra migrálódnak. A GDPR-export már a saját
   közösségi jelentéseket és értesítéseket is tartalmazza, más felhasználók ilyen rekordjai nélkül.
+- **1.3.4 – Írói eszközök az Írás fülön** – A saját könyvek és piszkozatok, új könyv létrehozása, fájlimport,
+  sorozatok, szerkesztés, előnézet, világépítés, statisztika, exportálás és törlés egy helyre, az Írás fülre került.
+  A Profil fülön maradnak a profil- és fiókbeállítások, a közösségi funkciók és a személyes adatok kezelése.
 - **v1.4 backend-kiegészítés** – A könyv befejezésének mentése szerveroldali, idempotens művelet,
   amely a budapesti naptári évet és az adatbázisban szereplő publikált/befejezett állapotot használja.
   A rate limit párhuzamos kéréseknél is atomikusan érvényesül. A kliens nem ment tokent titkosítatlanul,
