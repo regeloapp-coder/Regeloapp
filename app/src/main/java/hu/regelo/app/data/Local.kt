@@ -261,6 +261,7 @@ abstract class RegeloDatabase : RoomDatabase() {
             Room.databaseBuilder(context, RegeloDatabase::class.java, "regelo-v1.db")
                 // Kézi migráció: ismeretlen sémaváltásnál inkább hibázzunk, mint hogy töröljük a piszkozatokat.
                 .addMigrations(MIGRATION_1_2)
+                .openHelperFactory(EncryptedLocalDatabase.openHelperFactory(context.applicationContext))
                 .build()
     }
 }

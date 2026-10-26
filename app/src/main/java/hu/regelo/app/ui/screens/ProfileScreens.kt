@@ -67,6 +67,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -165,7 +166,11 @@ private fun ProfileContent(nav: Navigator, userId: String, isMe: Boolean) {
     var tip by remember { mutableStateOf(false) }
     var postNews by remember { mutableStateOf(false) }
     var deleteNews by remember { mutableStateOf<String?>(null) }
+    var newBook by remember { mutableStateOf(false) }
+    var deleteBook by remember { mutableStateOf<hu.regelo.app.data.LocalBook?>(null) }
+    var exportBook by remember { mutableStateOf<hu.regelo.app.data.LocalBook?>(null) }
     val myProfile by AppGraph.profiles.me.collectAsState()
+    val myBooks by AppGraph.writing.myBooks().collectAsState(initial = emptyList())
     val loader = rememberLoader(userId, if (isMe) myProfile else null) { loadProfile(userId) }
 
     Column(Modifier.fillMaxSize()) {
@@ -265,32 +270,73 @@ private fun ProfileContent(nav: Navigator, userId: String, isMe: Boolean) {
                         AnnouncementCard(hu.regelo.app.data.AnnouncementItem(a, p), nav, onDelete = if (isMe) ({ deleteNews = a.id }) else null)
                     }
                 }
+                if (isMe) {
+                    item(key = "my-writing-tools") {
+                        Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                            SectionTitle("Saját történetek és piszkozatok (${myBooks.size})")
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Button(onClick = { newBook = true }, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Add, null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Új történet", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                OutlinedButton(onClick = { nav.push(Route.Import(null)) }, modifier = Modifier.weight(1f)) {
+                                    Text("Importálás", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { nav.push(Route.SeriesManager) },
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+                            ) { Text("Sorozataim kezelése") }
+                            if (myBooks.isEmpty()) {
+                                Text(
+                                    "Itt kezelheted a piszkozataidat és publikált műveidet.",
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    items(myBooks, key = { "my-work-${it.id}" }) { book ->
+                        MyBookCard(
+                            book,
+                            onOpen = { nav.push(Route.BookEditor(book.id)) },
+                            onPreview = { nav.push(Route.Reader(book.id)) },
+                            onStats = { nav.push(Route.Stats(book.id)) },
+                            onWorld = { nav.push(Route.World(book.id)) },
+                            onExport = { exportBook = book },
+                            onDelete = { deleteBook = book },
+                        )
+                    }
+                }
                 // A hivatalos kiadványok külön sorban, a „Művei” előtt (a Regélő hivatalos profilján).
                 val officialCards = d.books.filter { it.book.id in officialBooks }
                 val ownCards = d.books.filter { it.book.id !in officialBooks }
-                if (officialCards.isNotEmpty()) {
-                    item { SectionTitle("Hivatalos kiadványok") }
-                    item {
-                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            items(officialCards, key = { "o-" + it.book.id }) { c ->
-                                Column(Modifier.width(112.dp)) {
-                                    BookTile(c, onClick = { nav.push(Route.BookDetail(c.book.id)) })
-                                    Text("Utoljára bővült: ${relativeTime(c.book.updatedAt)}", style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                if (!isMe) {
+                    if (officialCards.isNotEmpty()) {
+                        item { SectionTitle("Hivatalos kiadványok") }
+                        item {
+                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                items(officialCards, key = { "o-" + it.book.id }) { c ->
+                                    Column(Modifier.width(112.dp)) {
+                                        BookTile(c, onClick = { nav.push(Route.BookDetail(c.book.id)) })
+                                        Text("Utoljára bővült: ${relativeTime(c.book.updatedAt)}", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                if (officialCards.isEmpty() || ownCards.isNotEmpty()) item { SectionTitle(if (isMe) "Publikált műveim" else "Művei") }
-                if (officialCards.isNotEmpty() && ownCards.isEmpty()) {
-                    // A hivatalos fióknak nincs külön saját műve: nem írunk ki üres „Művei” részt.
-                } else if (ownCards.isEmpty()) item {
-                    Text(if (isMe) "Még nincs publikált történeted. Az Írás fülön kezdhetsz bele." else "Még nincs publikált története.",
-                        modifier = Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else item {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        items(ownCards, key = { it.book.id }) { c -> BookTile(c, onClick = { nav.push(Route.BookDetail(c.book.id)) }) }
+                    if (officialCards.isEmpty() || ownCards.isNotEmpty()) item { SectionTitle("Művei") }
+                    if (officialCards.isEmpty() && ownCards.isEmpty()) item {
+                        Text("Még nincs publikált története.", modifier = Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else if (ownCards.isNotEmpty()) item {
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            items(ownCards, key = { it.book.id }) { c -> BookTile(c, onClick = { nav.push(Route.BookDetail(c.book.id)) }) }
+                        }
                     }
                 }
                 if (d.lists.isNotEmpty()) {
@@ -306,6 +352,33 @@ private fun ProfileContent(nav: Navigator, userId: String, isMe: Boolean) {
                 }
             }
             if (tip) TipDialog(p.displayName, p.paypalMe) { tip = false }
+            if (newBook) NewBookDialog(onDismiss = { newBook = false }) { title, genre, description ->
+                scope.launch {
+                    try {
+                        val book = AppGraph.writing.createBook(title, genre, description)
+                        val firstChapter = AppGraph.writing.chapterList(book.id).firstOrNull()
+                        if (firstChapter != null) nav.push(Route.ChapterEditor(book.id, firstChapter.id))
+                        else nav.push(Route.BookEditor(book.id))
+                    } catch (e: Exception) {
+                        snackbar.showSnackbar(e.friendlyMessage().also {
+                            hu.regelo.app.util.ErrorReporter.report(e, "ProfileScreens.createBook")
+                        })
+                    }
+                }
+            }
+            exportBook?.let { book -> ExportDialog(book.id, book.title, onDismiss = { exportBook = null }) }
+            deleteBook?.let { book ->
+                ConfirmDialog(
+                    title = "Történet törlése",
+                    text = "„${book.title}” és minden fejezete véglegesen törlődik a telefonról és a felhőből. Ez nem vonható vissza.",
+                    confirm = "Végleges törlés",
+                    destructive = true,
+                    onConfirm = {
+                        scope.runAction(snackbar, "Történet törölve.") { AppGraph.writing.deleteBook(book.id) }
+                    },
+                    onDismiss = { deleteBook = null },
+                )
+            }
             if (postNews) PostNewsDialog(null, "", onDismiss = { postNews = false }, onPosted = { loader.reload() })
             deleteNews?.let { id ->
                 ConfirmDialog("Hír törlése", "Törlöd ezt a hírt? Az Újdonságok közül is eltűnik.", "Törlés", destructive = true,
