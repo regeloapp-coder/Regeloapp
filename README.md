@@ -1,4 +1,4 @@
-# Regélő – Android alkalmazás (v1.3.1)
+# Regélő – Android alkalmazás (v1.3.2)
 
 Magyar írói és olvasói platform (Wattpad / Inkitt jellegű), Kotlin + Jetpack Compose.
 
@@ -23,7 +23,7 @@ Google Playre aláírt Android App Bundle-t (AAB) tölts fel, ne fejlesztői deb
 4. Készítsd el az AAB-t, ellenőrizd a Play Console belső tesztcsatornáján, majd csak sikeres ellenőrzés után
    indítsd a szélesebb körű kiadást.
 5. Minden új feltöltés előtt növeld az `app/build.gradle.kts` fájlban a `versionCode` értékét. Jelenlegi értéke
-   `131`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
+   `132`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
 
 ### Parancssoros/CI aláírás
 Biztonságos build/CI titokként add meg mind a négy környezeti változót:
@@ -48,6 +48,9 @@ a szerveroldali hitelesítés és RLS-szabályok adják. Service-role kulcsot ti
 - Az alkalmazás API 37-et céloz. A `versionCode` frissítése és az aláírt bundle ellenőrzése még szükséges a kiadáshoz.
 - A completion RPC-t használó kliens kiadása előtt a cél Supabase-környezeten legyen alkalmazva a
   `supabase/2026-10-26_app_v1_4.sql` migráció.
+- A fióktörlés biztonságos útvonalához alkalmazd a
+  `supabase/2026-10-26_app_v1_4_1.sql` migrációt, és telepítsd a `delete-account` Edge Functiont.
+  A mobilkliens nem használ adatbázis-fallbacket, így sikertelen fájltakarítás esetén nem törli a fiókot.
 - A helyi Room-adatbázis SQLCipherrel titkosított. Meglévő telepítésen az indulási migráció WAL-ellenőrzőpontot
   készít, külön titkosított példányon konvertál, ellenőrzi, majd atomi fájlcserével vált; hiba esetén az eredeti
   adatbázis marad érintetlen. A véletlen adatvesztés elkerülésére ne töröld az alkalmazás adatait vagy Keystore-kulcsát.
@@ -73,6 +76,10 @@ Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohiva
   Az olvasási előrehaladás sikertelen feltöltése WorkManager-újrapróbálást eredményez; a fájlimport a 40 MB-os
   határt olvasás közben érvényesíti, nem a teljes fájl memóriába töltése után. Regressziós tesztek fedik le e
   változtatások kritikus útvonalait.
+- **1.3.2 – Biztonságos fióktörlés** – Az app csak a fájlokat is takarító `delete-account` Edge Functionön
+  keresztül töröl; hiba esetén jelzi, hogy a törlés eredménye nem igazolható, és nem indít fájlokat hátrahagyó
+  adatbázis-fallbacket. A Supabase RPC-jogosultság visszavonva, a Storage-mappák mélységhatárának elérése pedig
+  hibával leállítja a törlést a hiányos sikerjelzés helyett.
 - **v1.4 backend-kiegészítés** – A könyv befejezésének mentése szerveroldali, idempotens művelet,
   amely a budapesti naptári évet és az adatbázisban szereplő publikált/befejezett állapotot használja.
   A rate limit párhuzamos kéréseknél is atomikusan érvényesül. A kliens nem ment tokent titkosítatlanul,
@@ -80,6 +87,10 @@ Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohiva
   az ismeretlen sémájú helyi adatokat. A helyi Room-adatbázis SQLCipherrel titkosított; a kulcs Keystore-ban
   védett AES-GCM burkolással tárolódik, sérült vagy hiányzó kulcs esetén az alkalmazás az adatok törlése helyett
   hibával leáll. A korábbi sima SQLite-fájlt ellenőrzött, atomi migráció alakítja át.
+- **v1.4.1 backend-kiegészítés** – A fióktörlési RPC végrehajtása anon és bejelentkezett kliensek elől visszavonva,
+  így a Storage-fájlok törlését kihagyó közvetlen adatbázis-törlési útvonal nem használható. A kliens Edge Function
+  hibájánál megőrzi a fiókot, és hibát jelez; a Storage-listázás mélységkorlátja túllépésekor a törlés megáll,
+  nem jelenti sikeresnek a hiányos fájltakarítást.
 - **Profilon kezelt írások** – A saját művek és piszkozatok, import, sorozatok, export, statisztika és törlés
   a Profil fülön érhető el; az Írás fül a napi célra és írói kihívásokra összpontosít.
 - **1.3.0** – Hivatalos kiadványok, adatvédelem és biztonság:

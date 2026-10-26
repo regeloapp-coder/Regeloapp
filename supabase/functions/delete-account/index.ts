@@ -20,7 +20,7 @@ const admin: SupabaseClient = createClient(
 
 /** Egy mappa összes fájlja (rekurzívan), a tároló gyökeréhez viszonyított útvonallal. */
 async function listAll(bucket: string, prefix: string, depth = 0): Promise<string[]> {
-  if (depth > 6) return [];
+  if (depth > 6) throw new Error(`${bucket}: storage folder nesting limit exceeded`);
   const paths: string[] = [];
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: PAGE, offset });
