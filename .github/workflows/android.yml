@@ -27,4 +27,4 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Run unit tests
-        run: ./gradlew test
+        run: bash ./gradlew test
