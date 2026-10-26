@@ -297,7 +297,7 @@ class WritingRepository {
             if (pending != null) {
                 val file = File(pending)
                 if (file.exists()) {
-                    val url = AppGraph.storage.uploadJpeg(StorageRepository.Buckets.COVERS, "${b.id}-${nowMs()}.jpg", file.readBytes())
+                    val url = AppGraph.storage.uploadJpeg(StorageRepository.Buckets.COVERS, "${b.id}-${nowMs()}.jpg", Images.readTemp(file))
                     book = book.copy(coverUrl = url, pendingCoverPath = null)
                     file.delete()
                 } else book = book.copy(pendingCoverPath = null)

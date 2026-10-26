@@ -5,6 +5,7 @@ import hu.regelo.app.util.orReportNull
 import android.content.Intent
 import hu.regelo.app.AppGraph
 import hu.regelo.app.push.PushTokens
+import hu.regelo.app.util.Images
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -210,6 +211,7 @@ class AuthRepository {
     }
 
     private suspend fun clearLocalData() {
+        val pendingImagesError = runCatching { Images.clearPending(AppGraph.appContext) }.exceptionOrNull()
         AppGraph.db.books().clear()
         AppGraph.db.chapters().clear()
         AppGraph.db.progress().clear()
@@ -226,5 +228,9 @@ class AuthRepository {
         runCatching { AppGraph.settings.setShowOfficialStrip(true) }
         AppGraph.writing.resetSyncState()
         _state.value = AuthState.SignedOut
+        pendingImagesError?.let { error ->
+            hu.regelo.app.util.ErrorReporter.report(error, "pending-image-cleanup")
+            throw IllegalStateException("A helyi függő képeket nem sikerült törölni.", error)
+        }
     }
 }

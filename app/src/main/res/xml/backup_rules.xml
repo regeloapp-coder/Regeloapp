@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 és régebbi: a bejelentkezés, a titkosított helyi adatbázis és a beállítások nem kerülnek a Google-mentésbe.
+<!-- Android 11 és régebbi: a bejelentkezés, a titkosított helyi adatbázis, a beállítások és függő képek nem kerülnek a Google-mentésbe.
      A művek, piszkozatok és olvasási adatok a felhőben vannak, bejelentkezés után visszajönnek. -->
 <full-backup-content>
     <exclude domain="sharedpref" path="." />
     <exclude domain="database" path="." />
     <exclude domain="file" path="datastore/" />
+    <exclude domain="file" path="pending/" />
 </full-backup-content>
