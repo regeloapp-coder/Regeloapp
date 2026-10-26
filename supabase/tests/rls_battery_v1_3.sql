@@ -22,6 +22,13 @@ begin
                                        and c.is_draft = false order by c.order_index desc limit 1), false);
 end $$;
 
+insert into t_log(ok, msg)
+values (
+  not has_function_privilege('authenticated', 'public.delete_own_account()', 'EXECUTE')
+  and not has_function_privilege('anon', 'public.delete_own_account()', 'EXECUTE'),
+  'A fiók törlése csak a Storage-t is takarító Edge Functionön keresztül érhető el'
+);
+
 -- ================= A (hétköznapi felhasználó) =================
 select set_config('request.jwt.claims', json_build_object('sub', current_setting('t.a'), 'role', 'authenticated')::text, true);
 set local role authenticated;

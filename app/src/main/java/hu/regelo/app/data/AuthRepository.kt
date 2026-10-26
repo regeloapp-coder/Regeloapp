@@ -188,20 +188,20 @@ class AuthRepository {
     /**
      * App Store / Google Play követelmény: a fiók és minden adata végleges törlése.
      * Elsőként a delete-account Edge Function fut (a feltöltött képeket is törli a tárolókból);
-     * ha az nem érhető el, az adatbázis-függvény törli a fiókot és minden sorát.
+     * hiba esetén nem használunk adatbázis-fallbacket, mert az árván hagyhatja a feltöltött fájlokat.
      */
     suspend fun deleteAccount() {
-        val deletedWithFiles = try {
+        try {
             AppGraph.supabase.functions.invoke("delete-account")
-            true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             hu.regelo.app.util.ErrorReporter.report(e, "delete-account-function")
-            false
+            throw IllegalStateException(
+                "A fióktörlés eredményét nem sikerült megerősíteni. Ellenőrizd a fiók állapotát, majd próbáld újra.",
+                e,
+            )
         }
-        // Ha a függvény már törölte a fiókot, ez nem talál sort (a token még érvényes) – nem hiba.
-        if (!deletedWithFiles) AppGraph.supabase.postgrest.rpc("delete_own_account")
         withContext(NonCancellable) {
             AppGraph.messages.stop()
             runCatching { auth.signOut() }
