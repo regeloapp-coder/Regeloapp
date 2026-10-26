@@ -1,4 +1,4 @@
-# Regélő – Android alkalmazás (v1.3.2)
+# Regélő – Android alkalmazás (v1.3.3)
 
 Magyar írói és olvasói platform (Wattpad / Inkitt jellegű), Kotlin + Jetpack Compose.
 
@@ -23,7 +23,7 @@ Google Playre aláírt Android App Bundle-t (AAB) tölts fel, ne fejlesztői deb
 4. Készítsd el az AAB-t, ellenőrizd a Play Console belső tesztcsatornáján, majd csak sikeres ellenőrzés után
    indítsd a szélesebb körű kiadást.
 5. Minden új feltöltés előtt növeld az `app/build.gradle.kts` fájlban a `versionCode` értékét. Jelenlegi értéke
-   `132`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
+   `133`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
 
 ### Parancssoros/CI aláírás
 Biztonságos build/CI titokként add meg mind a négy környezeti változót:
@@ -51,6 +51,7 @@ a szerveroldali hitelesítés és RLS-szabályok adják. Service-role kulcsot ti
 - A fióktörlés biztonságos útvonalához alkalmazd a
   `supabase/2026-10-26_app_v1_4_1.sql` migrációt, és telepítsd a `delete-account` Edge Functiont.
   A mobilkliens nem használ adatbázis-fallbacket, így sikertelen fájltakarítás esetén nem törli a fiókot.
+- Az adatvédelmi export kiegészítéséhez alkalmazd a `supabase/2026-10-26_app_v1_4_2.sql` migrációt.
 - A helyi Room-adatbázis SQLCipherrel titkosított. Meglévő telepítésen az indulási migráció WAL-ellenőrzőpontot
   készít, külön titkosított példányon konvertál, ellenőrzi, majd atomi fájlcserével vált; hiba esetén az eredeti
   adatbázis marad érintetlen. A véletlen adatvesztés elkerülésére ne töröld az alkalmazás adatait vagy Keystore-kulcsát.
@@ -59,7 +60,9 @@ a szerveroldali hitelesítés és RLS-szabályok adják. Service-role kulcsot ti
 A `supabase/` mappában lévő SQL fájlok idempotensek (többször is futtathatók) a Supabase SQL Editorban.
 A kliens frissítésének kiadása előtt futtasd a `supabase/2026-10-26_app_v1_4.sql` migrációt a v1.3 után;
 az idempotens olvasásbefejezés RPC-t igényli. A hozzá tartozó adatbázis-tesztsor:
-`supabase/tests/reading_state_v1_4.sql`.
+`supabase/tests/reading_state_v1_4.sql`. A fióktörlés és teljes adatexport javításaihoz ezután futtasd a
+`2026-10-26_app_v1_4_1.sql` és `2026-10-26_app_v1_4_2.sql` fájlokat; az RLS-tesztsor ellenőrzi az export
+rekordjainak hatókörét és a törlési RPC jogosultságát.
 
 ## Mentés
 Ez a mappa a teljes forráskód. Készíts róla rendszeresen másolatot (pl. OneDrive vagy GitHub privát tároló),
@@ -80,6 +83,10 @@ Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohiva
   keresztül töröl; hiba esetén jelzi, hogy a törlés eredménye nem igazolható, és nem indít fájlokat hátrahagyó
   adatbázis-fallbacket. A Supabase RPC-jogosultság visszavonva, a Storage-mappák mélységhatárának elérése pedig
   hibával leállítja a törlést a hiányos sikerjelzés helyett.
+- **1.3.3 – Helyi képek és adatportabilitás** – A feltöltésre váró borítóképek AES-GCM-mel, Android Keystore-kulccsal
+  titkosítva tárolódnak, nem kerülnek biztonsági mentésbe, és kijelentkezéskor/fióktörléskor törlődnek; a korábbi
+  egyszerű JPEG-fájlok az első feltöltéskor atomi cserével titkosítottra migrálódnak. A GDPR-export már a saját
+  közösségi jelentéseket és értesítéseket is tartalmazza, más felhasználók ilyen rekordjai nélkül.
 - **v1.4 backend-kiegészítés** – A könyv befejezésének mentése szerveroldali, idempotens művelet,
   amely a budapesti naptári évet és az adatbázisban szereplő publikált/befejezett állapotot használja.
   A rate limit párhuzamos kéréseknél is atomikusan érvényesül. A kliens nem ment tokent titkosítatlanul,

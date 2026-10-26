@@ -106,6 +106,16 @@ begin
   insert into t_log(ok, msg) values ((j -> 'profile' ->> 'user_id') = a::text
       and not exists (select 1 from jsonb_array_elements(j -> 'comments') c where c ->> 'author_id' <> a::text),
       'Export: csak a saját adatok, ' || jsonb_array_length(j -> 'comments') || ' komment');
+  insert into t_log(ok, msg) values (
+      jsonb_array_length(j -> 'community_reports_filed') =
+        (select count(*) from public.community_reports where reporter_id = a)
+      and not exists (select 1 from jsonb_array_elements(j -> 'community_reports_filed') r where r ->> 'reporter_id' <> a::text),
+      'Export: saját közösségi jelentések, teljes darabszám és nincs más felhasználó adata');
+  insert into t_log(ok, msg) values (
+      jsonb_array_length(j -> 'community_notifications') =
+        (select count(*) from public.community_notifications where recipient_id = a)
+      and not exists (select 1 from jsonb_array_elements(j -> 'community_notifications') n where n ->> 'recipient_id' <> a::text),
+      'Export: saját értesítések, teljes darabszám és nincs más felhasználó adata');
 
   begin
     j := public.regelo_export_my_data();
