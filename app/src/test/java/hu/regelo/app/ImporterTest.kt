@@ -8,6 +8,7 @@ import hu.regelo.app.util.readingMinutes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.InputStream
 
 class ImporterTest {
     @Test
@@ -49,6 +50,47 @@ class ImporterTest {
         val (heading, body) = DocumentImporter.htmlToText("<html><head><title>x</title></head><body><h2>3. fejezet</h2><p>Ez <i>dőlt</i> és <b>félkövér</b>.</p><p>Második&nbsp;bekezdés &amp; vége</p></body></html>")
         assertEquals("3. fejezet", heading)
         assertEquals("Ez *dőlt* és **félkövér**.\nMásodik bekezdés & vége", body)
+    }
+
+    @Test
+    fun oversizedInputIsRejectedAfterReadingOnlyLimitPlusOne() {
+        val source = object : InputStream() {
+            var bytesRead = 0
+
+            override fun read(): Int {
+                bytesRead++
+                return 'x'.code
+            }
+
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                val count = minOf(length, 50 * 1024 * 1024 - bytesRead)
+                if (count == 0) return -1
+                java.util.Arrays.fill(buffer, offset, offset + count, 'x'.code.toByte())
+                bytesRead += count
+                return count
+            }
+        }
+
+        try {
+            DocumentImporter.importStream(null, "oversized.txt", source, splitIntoChapters = false)
+            throw AssertionError("Oversized input was accepted.")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message!!.contains("40 MB"))
+        }
+        assertEquals(DocumentImporter.MAX_INPUT_BYTES + 1, source.bytesRead)
+    }
+
+    @Test
+    fun normalTextInputParses() {
+        val parsed = DocumentImporter.importStream(
+            null,
+            "normal.txt",
+            "Egy rendes bekezdés a történetből.".byteInputStream(),
+            splitIntoChapters = false,
+        )
+
+        assertEquals("normal", parsed.title)
+        assertEquals("Egy rendes bekezdés a történetből.", parsed.chapters.single().content)
     }
 
     @Test

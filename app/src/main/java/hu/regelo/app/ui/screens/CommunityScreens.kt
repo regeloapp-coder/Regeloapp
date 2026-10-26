@@ -90,6 +90,7 @@ import hu.regelo.app.data.Conversation
 import hu.regelo.app.data.MessageDto
 import hu.regelo.app.data.NotificationItem
 import hu.regelo.app.data.ProfileDto
+import hu.regelo.app.util.ErrorReporter
 import hu.regelo.app.ui.components.Avatar
 import hu.regelo.app.ui.components.BackTopBar
 import hu.regelo.app.ui.components.ConfirmDialog
@@ -508,14 +509,13 @@ private fun MessageBubble(m: UiMessage, mine: Boolean, onRetry: () -> Unit) {
 @Composable
 fun NewMessageScreen(nav: Navigator) {
     var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<ProfileDto>>(emptyList()) }
-    var searching by remember { mutableStateOf(false) }
+    val profileSearch = remember { ProfileSearchState<ProfileDto>() }
     LaunchedEffect(query) {
-        kotlinx.coroutines.delay(350.milliseconds)
-        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
-        searching = true
-        results = runCatching { AppGraph.profiles.search(query) }.orReport("CommunityScreens", emptyList()).filter { it.userId != AppGraph.auth.userId }
-        searching = false
+        profileSearch.update(
+            query = query,
+            search = { AppGraph.profiles.search(it).filter { profile -> profile.userId != AppGraph.auth.userId } },
+            onError = { ErrorReporter.report(it, "CommunityScreens") },
+        )
     }
     Column(Modifier.fillMaxSize()) {
         BackTopBar("Új üzenet", onBack = { nav.back() })
@@ -524,12 +524,12 @@ fun NewMessageScreen(nav: Navigator) {
             leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(16.dp),
         )
-        if (searching) LoadingBox(Modifier.height(80.dp))
+        if (profileSearch.searching) LoadingBox(Modifier.height(80.dp))
         LazyColumn {
-            items(results, key = { it.userId }) { p ->
+            items(profileSearch.results, key = { it.userId }) { p ->
                 PersonRow(p, onClick = { nav.replace(Route.Conversation(p.userId)) }, trailing = { Icon(Icons.AutoMirrored.Filled.Send, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) })
             }
-            if (!searching && query.trim().length >= 2 && results.isEmpty()) item {
+            if (!profileSearch.searching && query.trim().length >= 2 && profileSearch.results.isEmpty()) item {
                 EmptyState(Icons.Default.Search, "Nincs ilyen felhasználó", "Próbáld a nevét vagy a @felhasználónevét, ékezet nélkül is mehet.")
             }
         }

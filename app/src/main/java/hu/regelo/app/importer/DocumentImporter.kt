@@ -9,6 +9,8 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.nio.charset.Charset
 import java.util.zip.ZipInputStream
 import javax.xml.parsers.DocumentBuilderFactory
@@ -18,6 +20,8 @@ import javax.xml.parsers.DocumentBuilderFactory
  * Eredmény: fejezetek listája (cím + szöveg Regélő-formátumban).
  */
 object DocumentImporter {
+    internal const val MAX_INPUT_BYTES = 40 * 1024 * 1024
+
     data class Result(val fileName: String, val title: String, val chapters: List<ChapterSplitter.Chapter>, val warning: String? = null)
 
     fun fileName(context: Context, uri: Uri): String {
@@ -30,21 +34,39 @@ object DocumentImporter {
     /** @param splitIntoChapters false esetén egyetlen fejezetként jön vissza (külön fejezet feltöltése). */
     fun import(context: Context, uri: Uri, splitIntoChapters: Boolean): Result {
         val name = fileName(context, uri)
-        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: error("A fájl nem olvasható.")
-        if (bytes.size > 40 * 1024 * 1024) error("A fájl túl nagy (legfeljebb 40 MB).")
+        val input = context.contentResolver.openInputStream(uri) ?: error("A fájl nem olvasható.")
+        return input.use { importStream(context, name, it, splitIntoChapters) }
+    }
+
+    internal fun importStream(context: Context?, name: String, input: InputStream, splitIntoChapters: Boolean): Result {
+        val bytes = readBounded(input)
         val ext = name.substringAfterLast('.', "").lowercase()
         val baseTitle = name.substringBeforeLast('.').replace('_', ' ').trim()
 
         val result: Result = when {
             ext == "docx" || isZipWith(bytes, "word/document.xml") -> fromDocx(name, baseTitle, bytes, splitIntoChapters)
             ext == "epub" || isZipWith(bytes, "META-INF/container.xml") -> fromEpub(name, baseTitle, bytes, splitIntoChapters)
-            ext == "pdf" || (bytes.size > 4 && String(bytes, 0, 4, Charsets.ISO_8859_1) == "%PDF") -> fromPdf(context, name, baseTitle, bytes, splitIntoChapters)
+            ext == "pdf" || (bytes.size > 4 && String(bytes, 0, 4, Charsets.ISO_8859_1) == "%PDF") ->
+                fromPdf(requireNotNull(context) { "PDF importálásához alkalmazáskörnyezet szükséges." }, name, baseTitle, bytes, splitIntoChapters)
             ext == "doc" -> fromDoc(name, baseTitle, bytes, splitIntoChapters)
             else -> fromText(name, baseTitle, decodeText(bytes), splitIntoChapters)
         }
         if (result.chapters.all { it.content.isBlank() }) error("Nem találtam szöveget a fájlban.")
         return result
+    }
+
+    internal fun readBounded(input: InputStream): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer, 0, minOf(buffer.size, MAX_INPUT_BYTES + 1 - total))
+            if (count < 0) break
+            total += count
+            if (total > MAX_INPUT_BYTES) error("A fájl túl nagy (legfeljebb 40 MB).")
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
     }
 
     private fun fromText(name: String, title: String, text: String, split: Boolean): Result {
