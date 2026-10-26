@@ -259,9 +259,8 @@ abstract class RegeloDatabase : RoomDatabase() {
 
         fun create(context: Context): RegeloDatabase =
             Room.databaseBuilder(context, RegeloDatabase::class.java, "regelo-v1.db")
-                // Kézi migráció: a feltöltetlen piszkozatok soha nem vesznek el sémaváltáskor.
+                // Kézi migráció: ismeretlen sémaváltásnál inkább hibázzunk, mint hogy töröljük a piszkozatokat.
                 .addMigrations(MIGRATION_1_2)
-                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
     }
 }

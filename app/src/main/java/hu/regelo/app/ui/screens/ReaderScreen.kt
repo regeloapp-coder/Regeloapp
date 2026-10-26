@@ -458,14 +458,14 @@ private fun ReaderContent(
             return@LaunchedEffect
         }
         runCatching {
-            if (AppGraph.reading.markFinished(b.id, b.title)) {
+            if (AppGraph.reading.markFinished(b.id)) {
                 val c = AppGraph.reading.challenge()
                 snackbar.notify(
                     if (c.goal > 0) "Kiolvastad! 🎉 Idei olvasási kihívás: ${c.count}/${c.goal}."
                     else "Kiolvastad! 🎉 Ez az idei ${c.count}. elolvasott könyved."
                 )
             }
-        }
+        }.onFailure { hu.regelo.app.util.ErrorReporter.report(it, "ReaderScreen.markFinished") }
     }
     // Kétoszlopos módban nincs görgetési pozíció: a fejezet megnyitását mentjük.
     LaunchedEffect(chapter?.id, twoColumns, gated) {

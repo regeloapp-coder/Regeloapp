@@ -8,6 +8,7 @@ import androidx.core.content.edit
 import io.github.jan.supabase.auth.SessionManager
 import io.github.jan.supabase.auth.SettingsSessionManager
 import io.github.jan.supabase.auth.user.UserSession
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,26 +27,32 @@ import javax.crypto.spec.GCMParameterSpec
  *
  * - Első indításkor a korábbi, titkosítatlan munkamenetet átveszi és törli (nem kell újra bejelentkezni).
  * - Ha a titkosított adat nem olvasható (pl. visszaállított telefonon), tiszta kijelentkezett állapot lesz.
- * - Ha a Keystore ezen a készüléken nem működik, a régi tárolóra esik vissza, hogy a bejelentkezés megmaradjon.
+ * - Ha a Keystore nem működik, a munkamenet mentése meghiúsul; tokenek soha nem kerülnek vissza sima szövegbe.
  */
 class SecureSessionManager(context: Context) : SessionManager {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val legacy = SettingsSessionManager()
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
     private val lock = Mutex()
-    @Volatile private var keystoreBroken = false
 
     override suspend fun saveSession(session: UserSession) {
         lock.withLock {
             withContext(Dispatchers.IO) {
                 val plain = json.encodeToString(UserSession.serializer(), session)
-                val stored = if (keystoreBroken) null else runCatching { encrypt(plain) }.onFailure { report(it, "save") }.getOrNull()
-                if (stored != null) {
+                val stored = try {
+                    encrypt(plain)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    report(e, "save")
+                    throw IllegalStateException("A munkamenet biztonságos mentése nem sikerült.", e)
+                }
+                try {
                     prefs.edit { putString(KEY, stored) }
-                    runCatching { legacy.deleteSession() }
-                } else {
-                    keystoreBroken = true
-                    legacy.saveSession(session)
+                    legacy.deleteSession()
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    report(e, "save")
+                    throw IllegalStateException("A munkamenet biztonságos mentése nem sikerült.", e)
                 }
             }
         }
@@ -54,20 +61,39 @@ class SecureSessionManager(context: Context) : SessionManager {
     override suspend fun loadSession(): UserSession? = lock.withLock {
         withContext<UserSession?>(Dispatchers.IO) {
             prefs.getString(KEY, null)?.let { stored ->
-                runCatching { json.decodeFromString(UserSession.serializer(), decrypt(stored)) }
-                    .onSuccess { return@withContext it }
-                    .onFailure {
-                        report(it, "load")
-                        prefs.edit { remove(KEY) }
-                    }
+                try {
+                    val session = json.decodeFromString(UserSession.serializer(), decrypt(stored))
+                    discardLegacySession()
+                    return@withContext session
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    report(e, "load")
+                    prefs.edit { remove(KEY) }
+                    discardLegacySession()
+                    return@withContext null
+                }
             }
-            // Régi (titkosítatlan) munkamenet átvétele.
-            val old = runCatching { legacy.loadSession() }.getOrNull() ?: return@withContext null
-            val moved = !keystoreBroken && runCatching {
-                prefs.edit { putString(KEY, encrypt(json.encodeToString(UserSession.serializer(), old))) }
-            }.isSuccess
-            if (moved) runCatching { legacy.deleteSession() }
-            old
+
+            // A régi, titkosítatlan munkamenetet egyszer titkosítva átvesszük, majd eltávolítjuk.
+            val old = try {
+                legacy.loadSession()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                report(e, "legacy-load")
+                discardLegacySession()
+                return@withContext null
+            } ?: return@withContext null
+            try {
+                val encrypted = encrypt(json.encodeToString(UserSession.serializer(), old))
+                prefs.edit { putString(KEY, encrypted) }
+                discardLegacySession()
+                old
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                report(e, "migrate")
+                discardLegacySession()
+                null
+            }
         }
     }
 
@@ -75,8 +101,17 @@ class SecureSessionManager(context: Context) : SessionManager {
         lock.withLock {
             withContext(Dispatchers.IO) {
                 prefs.edit { remove(KEY) }
-                runCatching { legacy.deleteSession() }
+                legacy.deleteSession()
             }
+        }
+    }
+
+    private suspend fun discardLegacySession() {
+        try {
+            legacy.deleteSession()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            report(e, "legacy-delete")
         }
     }
 

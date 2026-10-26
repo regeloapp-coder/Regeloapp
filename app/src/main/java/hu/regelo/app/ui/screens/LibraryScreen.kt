@@ -120,7 +120,7 @@ fun LibraryScreen(nav: Navigator) {
             lists = runCatching { AppGraph.library.myLists() }.orReport("LibraryScreen", emptyList()),
             challenge = runCatching { AppGraph.reading.challenge() }.orReport("LibraryScreen", null),
             // A hivatalos sáv hibája soha nem akadályozza a Könyvtár többi részét.
-            official = runCatching { AppGraph.official.overview() }.getOrDefault(emptyList()),
+            official = runCatching { AppGraph.official.overview() }.orReport("LibraryScreen.official", emptyList()),
         )
     }
     // Visszatéréskor (pl. olvasás után vagy az app újbóli megnyitásakor) frissül a Folytatás és a hivatalos sáv.

@@ -13,6 +13,9 @@ Az APK: `app/build/outputs/apk/debug/app-debug.apk`
 
 ## Adatbázis
 A `supabase/` mappában lévő SQL fájlok idempotensek (többször is futtathatók) a Supabase SQL Editorban.
+A kliens frissítésének kiadása előtt futtasd a `supabase/2026-10-26_app_v1_4.sql` migrációt a v1.3 után;
+az idempotens olvasásbefejezés RPC-t igényli. A hozzá tartozó adatbázis-tesztsor:
+`supabase/tests/reading_state_v1_4.sql`.
 
 ## Mentés
 Ez a mappa a teljes forráskód. Készíts róla rendszeresen másolatot (pl. OneDrive vagy GitHub privát tároló),
@@ -22,6 +25,11 @@ hogy egy véletlen törlés ne okozzon gondot.
 Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohivatalos (moderátor, hírei minden felhasználónak mennek).
 
 ## Változások
+- **v1.4 backend-kiegészítés** – A könyv befejezésének mentése szerveroldali, idempotens művelet,
+  amely a budapesti naptári évet és az adatbázisban szereplő publikált/befejezett állapotot használja.
+  A rate limit párhuzamos kéréseknél is atomikusan érvényesül. A kliens nem ment tokent titkosítatlanul,
+  az adat-export a teljes, szerveroldali GDPR-exportot használja, és a Room frissítés nem törli csendben
+  az ismeretlen sémájú helyi adatokat.
 - **1.3.0** – Hivatalos kiadványok, adatvédelem és biztonság:
   a Regélő négy, folyamatosan bővülő hivatalos „könyve” (Hírek, Kihívások, Heti válogatás, Kávéház) – az új részeket a szerver
   automatikusan teszi közzé (hírből, kihívásból, heti válogatásból, beszélgetésindítóból); „A Regélőtől” sáv a Könyvtárban
