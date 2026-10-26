@@ -21,4 +21,17 @@ class NavigatorTest {
         assertEquals(true, nav.back())
         assertEquals(Route.Root(Tab.WRITE), nav.current)
     }
+
+    @Test
+    fun openingOwnWorkFromProfileUsesWriteTabAndKeepsEditorBackStack() {
+        val nav = Navigator()
+        nav.select(Tab.ME)
+
+        nav.open(Tab.WRITE, Route.BookEditor("book-1"))
+
+        assertEquals(Tab.WRITE, nav.tab)
+        assertEquals(Route.BookEditor("book-1"), nav.current)
+        assertEquals(true, nav.back())
+        assertEquals(Route.Root(Tab.WRITE), nav.current)
+    }
 }

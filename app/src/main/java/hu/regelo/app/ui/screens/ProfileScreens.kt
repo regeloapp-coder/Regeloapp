@@ -52,6 +52,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -76,15 +77,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import hu.regelo.app.AppGraph
 import hu.regelo.app.data.BookCard
+import hu.regelo.app.data.LocalBook
 import hu.regelo.app.data.ProfileDto
 import hu.regelo.app.data.ProfileLink
 import hu.regelo.app.data.ProfileRepository
 import hu.regelo.app.data.ProfileStats
 import hu.regelo.app.data.ReadingList
+import hu.regelo.app.data.SeriesDto
+import hu.regelo.app.data.PublishStatus
 import hu.regelo.app.data.StorageRepository
 import hu.regelo.app.ui.components.Avatar
 import hu.regelo.app.ui.components.BackTopBar
@@ -105,12 +110,14 @@ import hu.regelo.app.ui.components.rememberLoader
 import hu.regelo.app.ui.components.runAction
 import hu.regelo.app.ui.nav.Navigator
 import hu.regelo.app.ui.nav.Route
+import hu.regelo.app.ui.nav.Tab
 import hu.regelo.app.ui.theme.Ink
 import hu.regelo.app.ui.theme.Rust
 import hu.regelo.app.util.Images
 import hu.regelo.app.util.friendlyMessage
 import hu.regelo.app.util.nowMs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import hu.regelo.app.util.openSafe
@@ -166,7 +173,28 @@ private fun ProfileContent(nav: Navigator, userId: String, isMe: Boolean) {
     var postNews by remember { mutableStateOf(false) }
     var deleteNews by remember { mutableStateOf<String?>(null) }
     val myProfile by AppGraph.profiles.me.collectAsState()
+    val myBooks by AppGraph.writing.myBooks().collectAsState(initial = emptyList())
+    var mySeries by remember { mutableStateOf<List<SeriesDto>?>(null) }
+    var mySeriesError by remember { mutableStateOf(false) }
+    var mySeriesLoadAttempt by remember { mutableStateOf(0) }
+    var myWorksTab by remember { mutableStateOf(0) }
     val loader = rememberLoader(userId, if (isMe) myProfile else null) { loadProfile(userId) }
+
+    LaunchedEffect(isMe, userId, mySeriesLoadAttempt) {
+        if (isMe) {
+            mySeries = null
+            mySeriesError = false
+            try {
+                mySeries = AppGraph.writing.mySeries()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                hu.regelo.app.util.ErrorReporter.report(e, "ProfileScreens.mySeries")
+                mySeriesError = true
+            }
+        } else {
+            mySeries = null
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         if (!isMe || nav.stack.size > 1) {
@@ -259,6 +287,99 @@ private fun ProfileContent(nav: Navigator, userId: String, isMe: Boolean) {
                     }
                 }
                 item(key = "badges-$userId") { hu.regelo.app.ui.components.BadgesSection(userId, isMe) }
+                if (isMe) {
+                    item(key = "my-works-title") { SectionTitle("Műveim") }
+                    item(key = "my-works-tabs") {
+                        FlowRow(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            FilterChip(
+                                selected = myWorksTab == 0,
+                                onClick = { myWorksTab = 0 },
+                                label = { Text("Publikált (${myBooks.count { it.publishStatus == PublishStatus.PUBLISHED && !it.deleted }})") },
+                            )
+                            FilterChip(
+                                selected = myWorksTab == 1,
+                                onClick = { myWorksTab = 1 },
+                                label = { Text("Piszkozatok (${myBooks.count { it.publishStatus == PublishStatus.DRAFT && !it.deleted }})") },
+                            )
+                            FilterChip(
+                                selected = myWorksTab == 2,
+                                onClick = { myWorksTab = 2 },
+                                label = { Text("Sorozataim (${mySeries.orEmpty().size})") },
+                            )
+                        }
+                    }
+                    when (myWorksTab) {
+                        0, 1 -> {
+                            val wantedStatus = if (myWorksTab == 0) PublishStatus.PUBLISHED else PublishStatus.DRAFT
+                            val books = myBooks.filter { !it.deleted && it.publishStatus == wantedStatus }
+                            if (books.isEmpty()) {
+                                item(key = "my-works-empty-$myWorksTab") {
+                                    Text(
+                                        if (myWorksTab == 0) "Még nincs publikált műved." else "Még nincs piszkozatod.",
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            } else {
+                                items(books, key = { "profile-work-${it.id}" }) { book ->
+                                    ProfileWorkCard(book, onOpen = {
+                                        if (book.publishStatus == PublishStatus.PUBLISHED) {
+                                            nav.push(Route.BookDetail(book.id))
+                                        } else {
+                                            nav.open(Tab.WRITE, Route.BookEditor(book.id))
+                                        }
+                                    }, onEdit = { nav.open(Tab.WRITE, Route.BookEditor(book.id)) })
+                                }
+                            }
+                        }
+                        else -> {
+                            val series = mySeries
+                            when {
+                                mySeriesError -> item(key = "my-series-error") {
+                                    Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                                        Text("A sorozataid betöltése nem sikerült.", color = MaterialTheme.colorScheme.error)
+                                        TextButton(onClick = { mySeriesLoadAttempt++ }) { Text("Újrapróbálás") }
+                                    }
+                                }
+                                series == null -> item(key = "my-series-loading") {
+                                    Text("Sorozatok betöltése…", modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                                }
+                                series.isEmpty() -> item(key = "my-series-empty") {
+                                    Text("Még nincs sorozatod.", modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                else -> items(series, key = { "profile-series-${it.id}" }) { s ->
+                                    Card(
+                                        onClick = { nav.open(Tab.WRITE, Route.SeriesDetail(s.id)) },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    ) {
+                                        Column(Modifier.padding(16.dp)) {
+                                            Text(s.name, style = MaterialTheme.typography.titleMedium)
+                                            Text(
+                                                "${myBooks.count { it.seriesId == s.id && !it.deleted }} kötet",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            if (s.description.isNotBlank()) {
+                                                Text(s.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            item(key = "manage-my-series") {
+                                OutlinedButton(
+                                    onClick = { nav.open(Tab.WRITE, Route.SeriesManager) },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                ) { Text("Sorozatok kezelése") }
+                            }
+                        }
+                    }
+                }
                 if (d.news.isNotEmpty()) {
                     item { SectionTitle("Hírek") }
                     items(d.news, key = { "n-" + it.id }) { a ->
@@ -319,6 +440,33 @@ private fun ProfileContent(nav: Navigator, userId: String, isMe: Boolean) {
                 onConfirm = { scope.runAction(snackbar) { if (d.blocked) AppGraph.social.unblock(userId) else AppGraph.social.block(userId); loader.reload() } },
                 onDismiss = { block = false },
             )
+        }
+    }
+}
+
+@Composable
+private fun ProfileWorkCard(book: LocalBook, onOpen: () -> Unit, onEdit: () -> Unit) {
+    Card(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(book.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    PublishStatus.label(book.publishStatus),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "Szerkesztés")
+            }
         }
     }
 }
