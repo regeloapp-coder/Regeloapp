@@ -26,8 +26,8 @@ android {
         applicationId = "hu.regelo.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 135
-        versionName = "1.3.5"
+        versionCode = 136
+        versionName = "1.3.6"
 
         buildConfigField("String", "SUPABASE_URL", "\"https://pqmfezkvaslqedalwwnn.supabase.co\"")
         // Nyilvános (publishable) kulcs – a sorszintű jogosultságok (RLS) védik az adatokat.
