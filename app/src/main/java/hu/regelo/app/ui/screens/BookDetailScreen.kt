@@ -124,6 +124,12 @@ private data class DetailData(
     val isOfficial: Boolean get() = officialSlug != null
 }
 
+internal fun bookmarkToggleDescription(saved: Boolean): String =
+    if (saved) "Eltávolítás a könyvtárból" else "Hozzáadás a könyvtárhoz"
+
+internal fun likeToggleDescription(liked: Boolean): String =
+    if (liked) "Kedvelés visszavonása" else "Kedvelés"
+
 @Composable
 fun BookDetailScreen(nav: Navigator, bookId: String) {
     val snackbar = LocalSnackbar.current
@@ -254,13 +260,13 @@ fun BookDetailScreen(nav: Navigator, bookId: String) {
                                     if (!d.saved) AppGraph.books.cacheBook(b)
                                     loader.update { it.copy(saved = !d.saved) }
                                 }
-                            }) { Icon(if (d.saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, "Könyvtárba", tint = MaterialTheme.colorScheme.secondary) }
+                            }) { Icon(if (d.saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, bookmarkToggleDescription(d.saved), tint = MaterialTheme.colorScheme.secondary) }
                             IconButton(onClick = {
                                 scope.runAction(snackbar) {
                                     AppGraph.social.setBookLike(b.id, !d.liked)
                                     loader.update { it.copy(liked = !d.liked, likeCount = it.likeCount + if (d.liked) -1 else 1) }
                                 }
-                            }) { Icon(if (d.liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Kedvelés", tint = MaterialTheme.colorScheme.secondary) }
+                            }) { Icon(if (d.liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, likeToggleDescription(d.liked), tint = MaterialTheme.colorScheme.secondary) }
                         }
                         val downloaded = localBook?.downloaded == true
                         IconButton(onClick = {

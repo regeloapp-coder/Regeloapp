@@ -7,6 +7,7 @@ import hu.regelo.app.util.newId
 import hu.regelo.app.util.nowMs
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -31,6 +32,12 @@ data class ReadingList(
 /** A „Folytatás” sor eleme; [newParts] > 0, ha a végére ért olvasó óta új rész jelent meg. */
 data class ContinueItem(val card: BookCard, val progress: LocalProgress, val newParts: Int = 0)
 
+enum class ProgressSyncResult {
+    SYNCED,
+    NO_PENDING_CHANGES,
+    NO_AUTHENTICATED_USER,
+}
+
 @kotlinx.serialization.Serializable
 private data class ChapterPublishRow(
     val id: String,
@@ -52,26 +59,34 @@ class LibraryRepository {
         AppGraph.appScope.launch {
             val p = LocalProgress(bookId, chapterIndex, percent.coerceIn(0, 100), paragraphIndex, nowMs(), dirty = true, chapterId = chapterId)
             progressDao.upsert(p)
-            pushProgress(p)
+            try {
+                pushProgress(p)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // The local dirty row is retried by the background sync.
+            }
         }
     }
 
-    private suspend fun pushProgress(p: LocalProgress) {
-        val uid = AppGraph.auth.userId ?: return
-        if (!AppGraph.network.currentlyOnline()) return
-        runCatching {
-            AppGraph.supabase.from("reader_progress").upsert(
-                ReaderProgressDto(uid, p.bookId, p.chapterIndex, p.percent, false, p.updatedAt, p.chapterId)
-            ) { onConflict = "user_id,book_id" }
-            val latest = progressDao.get(p.bookId)
-            if (latest != null && latest.updatedAt == p.updatedAt) progressDao.upsert(latest.copy(dirty = false))
-        }
+    private suspend fun pushProgress(p: LocalProgress): Boolean {
+        val uid = AppGraph.auth.userId ?: return false
+        if (!AppGraph.network.currentlyOnline()) return false
+        AppGraph.supabase.from("reader_progress").upsert(
+            ReaderProgressDto(uid, p.bookId, p.chapterIndex, p.percent, false, p.updatedAt, p.chapterId)
+        ) { onConflict = "user_id,book_id" }
+        val latest = progressDao.get(p.bookId)
+        if (latest != null && latest.updatedAt == p.updatedAt) progressDao.upsert(latest.copy(dirty = false))
+        return true
     }
 
     /** Pozíciók összefésülése: mindig a legutóbbi (bármelyik eszközön) nyer. */
-    suspend fun syncProgress() {
-        val uid = AppGraph.auth.userId ?: return
-        progressDao.dirty().forEach { pushProgress(it) }
+    suspend fun syncProgress(): ProgressSyncResult {
+        val uid = AppGraph.auth.userId ?: return ProgressSyncResult.NO_AUTHENTICATED_USER
+        val dirty = progressDao.dirty()
+        dirty.forEach {
+            check(pushProgress(it)) { "Az olvasási pozíció feltöltése nem sikerült." }
+        }
         val remote = AppGraph.supabase.from("reader_progress").select {
             filter { eq("user_id", uid) }
         }.decodeList<ReaderProgressDto>()
@@ -86,6 +101,7 @@ class LibraryRepository {
                 progressDao.upsert(LocalProgress(r.bookId, r.chapterIndex, r.percent, paragraph, r.updatedAt, dirty = false, chapterId = r.chapterId))
             }
         }
+        return if (dirty.isEmpty()) ProgressSyncResult.NO_PENDING_CHANGES else ProgressSyncResult.SYNCED
     }
 
     suspend fun removeFromContinue(bookId: String) {

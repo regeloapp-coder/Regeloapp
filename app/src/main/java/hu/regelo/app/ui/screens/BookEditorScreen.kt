@@ -64,7 +64,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -98,16 +100,74 @@ import hu.regelo.app.util.readingTimeLabel
 import hu.regelo.app.util.relativeTime
 import hu.regelo.app.ui.components.notify
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
-import kotlin.time.Duration.Companion.milliseconds
+
+private data class BookEditorMetadata(
+    val title: String,
+    val penName: String,
+    val genre: String,
+    val shortDescription: String,
+    val isCompleted: Boolean,
+    val ageRating: String,
+    val contentWarnings: String,
+    val themeTags: String,
+    val publishStatus: String,
+    val scheduledDate: String?,
+    val seriesId: String?,
+    val volumeNumber: Int,
+) {
+    fun applyTo(book: LocalBook): LocalBook = book.copy(
+        title = title,
+        penName = penName,
+        genre = genre,
+        shortDescription = shortDescription,
+        isCompleted = isCompleted,
+        ageRating = ageRating,
+        contentWarnings = contentWarnings,
+        themeTags = themeTags,
+        publishStatus = publishStatus,
+        scheduledDate = scheduledDate,
+        seriesId = seriesId,
+        volumeNumber = volumeNumber,
+    )
+
+    companion object {
+        fun from(book: LocalBook) = BookEditorMetadata(
+            title = book.title,
+            penName = book.penName,
+            genre = book.genre,
+            shortDescription = book.shortDescription,
+            isCompleted = book.isCompleted,
+            ageRating = book.ageRating,
+            contentWarnings = book.contentWarnings,
+            themeTags = book.themeTags,
+            publishStatus = book.publishStatus,
+            scheduledDate = book.scheduledDate,
+            seriesId = book.seriesId,
+            volumeNumber = book.volumeNumber,
+        )
+    }
+}
 
 @Composable
 fun BookEditorScreen(nav: Navigator, bookId: String) {
     val snackbar = LocalSnackbar.current
     val scope = rememberCoroutineScope()
+    val bookSaver = remember(bookId) {
+        DebouncedBookSaver<BookEditorMetadata>(
+            scope = AppGraph.appScope,
+            delayMillis = 700,
+            save = { metadata: BookEditorMetadata ->
+                AppGraph.writing.book(bookId)?.let { current ->
+                    AppGraph.writing.saveBook(metadata.applyTo(current))
+                }
+            },
+            onError = { hu.regelo.app.util.ErrorReporter.report(it, "BookEditorScreen.saveBook") },
+        )
+    }
     val context = LocalContext.current
     val stored by AppGraph.writing.observeBook(bookId).collectAsState(initial = null)
     val chapters by AppGraph.writing.chaptersOf(bookId).collectAsState(initial = emptyList())
@@ -128,20 +188,39 @@ fun BookEditorScreen(nav: Navigator, bookId: String) {
         if (draft == null) { draft = s; tagsText = s.themeTags.splitList().joinToString(", ") }
     }
     LaunchedEffect(Unit) { series = runCatching { AppGraph.writing.mySeries() }.orReport("BookEditorScreen", emptyList()) }
-    // A beállítások automatikus mentése (gépelés után kis késleltetéssel).
-    LaunchedEffect(draft, tagsText) {
-        val d = draft ?: return@LaunchedEffect
-        val s = stored ?: return@LaunchedEffect
-        delay(700.milliseconds)
-        val tags = tagsText.split(',', '#').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.distinct().take(10).joinList()
-        // Csak a szerkeszthető mezőket visszük át a tárolt könyvre: a közben szinkronizált adatok
-        // (borító, megtekintések, letöltés stb.) így nem íródnak felül a megnyitáskori állapottal.
-        val toSave = s.copy(
-            title = d.title, penName = d.penName, genre = d.genre, shortDescription = d.shortDescription,
-            isCompleted = d.isCompleted, ageRating = d.ageRating, contentWarnings = d.contentWarnings, themeTags = tags,
-            publishStatus = d.publishStatus, scheduledDate = d.scheduledDate, seriesId = d.seriesId, volumeNumber = d.volumeNumber,
-        )
-        if (toSave != s) AppGraph.writing.saveBook(toSave)
+    val pendingBookSave: BookEditorMetadata? = remember(draft, tagsText, stored) {
+        val d = draft
+        val s = stored
+        if (d == null || s == null) null else {
+            val tags = tagsText.split(',', '#').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.distinct().take(10).joinList()
+            BookEditorMetadata(
+                title = d.title,
+                penName = d.penName,
+                genre = d.genre,
+                shortDescription = d.shortDescription,
+                isCompleted = d.isCompleted,
+                ageRating = d.ageRating,
+                contentWarnings = d.contentWarnings,
+                themeTags = tags,
+                publishStatus = d.publishStatus,
+                scheduledDate = d.scheduledDate,
+                seriesId = d.seriesId,
+                volumeNumber = d.volumeNumber,
+            ).takeIf { it != BookEditorMetadata.from(s) }
+        }
+    }
+    val latestPendingBookSave by rememberUpdatedState(pendingBookSave)
+    LaunchedEffect(pendingBookSave) {
+        pendingBookSave?.let(bookSaver::submit)
+    }
+    DisposableEffect(bookSaver) {
+        onDispose {
+            val latest = latestPendingBookSave
+            AppGraph.appScope.launch {
+                latest?.let(bookSaver::submit)
+                bookSaver.flush()
+            }
+        }
     }
     // Ha a szerver időközben megjelentette az időzített könyvet, a szerkesztő is ezt mutassa (és ne írja vissza).
     LaunchedEffect(stored?.publishStatus) {
@@ -241,8 +320,16 @@ fun BookEditorScreen(nav: Navigator, bookId: String) {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
                         scope.launch {
-                            val c = AppGraph.writing.createChapter(bookId, "${chapters.size + 1}. fejezet", "")
-                            nav.push(Route.ChapterEditor(bookId, c.id))
+                            try {
+                                val c = AppGraph.writing.createChapter(bookId, "${chapters.size + 1}. fejezet", "")
+                                nav.push(Route.ChapterEditor(bookId, c.id))
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                snackbar.showSnackbar(e.friendlyMessage().also {
+                                    hu.regelo.app.util.ErrorReporter.report(e, "BookEditorScreen.createChapter")
+                                })
+                            }
                         }
                     }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Új fejezet") }
                     OutlinedButton(onClick = { nav.push(Route.Import(bookId)) }) { Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(6.dp)); Text("Fájlból") }
