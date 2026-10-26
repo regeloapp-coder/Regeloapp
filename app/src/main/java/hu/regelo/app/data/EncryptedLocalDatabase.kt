@@ -95,6 +95,9 @@ internal object EncryptedLocalDatabase {
         } finally {
             plainDb.close()
         }
+        check(temporary.createNewFile()) {
+            "A titkosított adatbázis ideiglenes fájlja nem hozható létre."
+        }
         listOf("-wal", "-shm").forEach { suffix ->
             val sidecar = File(database.absolutePath + suffix)
             check(!sidecar.exists() || sidecar.delete()) {
@@ -103,22 +106,38 @@ internal object EncryptedLocalDatabase {
         }
 
         try {
-            database.copyTo(temporary, overwrite = true)
             val migrationDb = SQLiteDatabase.openDatabase(
-                temporary.absolutePath,
+                database.absolutePath,
                 null,
                 SQLiteDatabase.OPEN_READWRITE,
             )
             try {
                 verifyReadable(migrationDb)
-                migrationDb.changePassword(passphrase)
-                verifyReadable(migrationDb)
+                val schemaVersion = migrationDb.version
+                migrationDb.execSQL(
+                    "ATTACH DATABASE ? AS encrypted KEY ?",
+                    arrayOf(temporary.absolutePath, passphrase),
+                )
+                try {
+                    migrationDb.rawQuery("SELECT sqlcipher_export('encrypted')", null).use { cursor ->
+                        check(cursor.moveToFirst() && cursor.getInt(0) == 0) {
+                            "Az SQLite-adatbázis titkosított exportja sikertelen."
+                        }
+                    }
+                    migrationDb.execSQL("PRAGMA encrypted.user_version = $schemaVersion")
+                    migrationDb.rawQuery("PRAGMA encrypted.user_version", null).use { cursor ->
+                        check(cursor.moveToFirst() && cursor.getInt(0) == schemaVersion) {
+                            "Az adatbázis sémaverziójának exportja sikertelen."
+                        }
+                    }
+                } finally {
+                    migrationDb.execSQL("DETACH DATABASE encrypted")
+                }
             } finally {
                 migrationDb.close()
             }
             verifyEncryptedDatabase(temporary, passphrase)
             Os.rename(temporary.absolutePath, database.absolutePath)
-            verifyEncryptedDatabase(database, passphrase)
         } catch (e: Exception) {
             temporary.delete()
             throw IllegalStateException(
