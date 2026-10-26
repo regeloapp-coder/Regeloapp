@@ -52,7 +52,7 @@ class BookRepository {
         val books = AppGraph.supabase.from("books").select {
             filter {
                 eq("publish_status", PublishStatus.PUBLISHED)
-                if (official.isNotEmpty()) notIn("id", filterValues(official))
+                if (official.isNotEmpty()) filterNot("id", FilterOperator.IN, filterValues(official))
                 // 18+ művek csak életkor-megerősítés után jelennek meg.
                 if (!adult) neq("age_rating", "18+")
                 if (q.isNotEmpty()) {

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -82,6 +83,7 @@ import hu.regelo.app.data.SeriesDto
 import hu.regelo.app.ui.components.Avatar
 import hu.regelo.app.ui.components.BackTopBar
 import hu.regelo.app.ui.components.BookCover
+import hu.regelo.app.ui.components.ConfirmDialog
 import hu.regelo.app.ui.components.LoadContent
 import hu.regelo.app.ui.components.LocalSnackbar
 import hu.regelo.app.ui.components.Pill
@@ -90,13 +92,16 @@ import hu.regelo.app.ui.components.ReportDialog
 import hu.regelo.app.ui.components.authorLabel
 import hu.regelo.app.ui.components.rememberLoader
 import hu.regelo.app.ui.components.runAction
+import hu.regelo.app.ui.components.notify
 import hu.regelo.app.ui.nav.Navigator
 import hu.regelo.app.ui.nav.Route
 import hu.regelo.app.util.compactNumber
+import hu.regelo.app.util.friendlyMessage
 import hu.regelo.app.util.readingTimeLabel
 import hu.regelo.app.util.relativeTime
 import java.util.Locale
 import hu.regelo.app.util.openSafe
+import kotlinx.coroutines.launch
 
 private data class DetailData(
     val book: BookDto,
@@ -130,6 +135,7 @@ fun BookDetailScreen(nav: Navigator, bookId: String) {
     var rateDialog by remember { mutableStateOf(false) }
     var listsDialog by remember { mutableStateOf(false) }
     var tipDialog by remember { mutableStateOf(false) }
+    var deleteBookConfirm by remember { mutableStateOf(false) }
     val localBook by AppGraph.books.observeLocalBook(bookId).collectAsState(initial = null)
 
     val loader = rememberLoader(bookId) {
@@ -171,6 +177,11 @@ fun BookDetailScreen(nav: Navigator, bookId: String) {
                     val text = "„${d.book.title}” – ${d.book.authorLabel(d.author?.displayName)}\nOlvasd a Regélőn!"
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, "Megosztás"))
                 }) { Icon(Icons.Default.Share, "Megosztás") }
+                if (d.book.authorId == me && !d.isOfficial) {
+                    IconButton(onClick = { deleteBookConfirm = true }) {
+                        Icon(Icons.Default.Delete, "Történet törlése", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
                 IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Továbbiak") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Hozzáadás listához") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null) }, onClick = { menu = false; listsDialog = true })
@@ -369,6 +380,26 @@ fun BookDetailScreen(nav: Navigator, bookId: String) {
                 scope.runAction(snackbar, "Köszönjük, a moderátorok átnézik.") { AppGraph.social.reportContent("BOOK", b.id, reason, note) }
             }, onDismiss = { report = false })
             if (listsDialog) AddToListDialog(b.id) { listsDialog = false }
+            if (deleteBookConfirm) ConfirmDialog(
+                title = "Történet törlése",
+                text = "„${b.title}” és minden fejezete véglegesen törlődik a telefonról és a felhőből. Ez nem vonható vissza.",
+                confirm = "Végleges törlés",
+                destructive = true,
+                onConfirm = {
+                    scope.launch {
+                        try {
+                            AppGraph.writing.deleteBook(b.id)
+                            snackbar.notify("Történet törölve.")
+                            nav.back()
+                        } catch (e: Exception) {
+                            snackbar.showSnackbar(e.friendlyMessage().also {
+                                hu.regelo.app.util.ErrorReporter.report(e, "BookDetailScreen.deleteBook")
+                            })
+                        }
+                    }
+                },
+                onDismiss = { deleteBookConfirm = false },
+            )
             if (tipDialog) TipDialog(d.author?.displayName ?: b.penName, d.author?.paypalMe ?: "") { tipDialog = false }
         } }
     }

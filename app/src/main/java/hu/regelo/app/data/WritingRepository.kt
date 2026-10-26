@@ -95,7 +95,13 @@ class WritingRepository {
     }
 
     suspend fun deleteBook(id: String) {
-        val b = books.get(id) ?: return
+        val uid = AppGraph.auth.requireUserId()
+        val local = books.get(id)
+        val b = local?.takeIf { it.isMine } ?: AppGraph.books.getBook(id)?.let { remote ->
+            check(remote.authorId == uid) { "Csak a saját történetedet törölheted." }
+            remote.toLocal(isMine = true, existing = local).also { books.upsert(it) }
+        } ?: error("A történet nem található.")
+        check(b.authorId == uid) { "Csak a saját történetedet törölheted." }
         books.upsert(b.copy(deleted = true, dirty = true, updatedAt = nowMs()))
         requestSync(immediate = true)
     }

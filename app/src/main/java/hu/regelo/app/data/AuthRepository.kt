@@ -182,7 +182,7 @@ class AuthRepository {
      */
     suspend fun exportMyData(): String {
         val raw = AppGraph.supabase.postgrest.rpc("regelo_export_my_data").data
-        return runCatching { prettyJson.encodeToString(JsonElement.serializer(), Json.parseToJsonElement(raw)) }.getOrDefault(raw)
+        return prettyJson.encodeToString(JsonElement.serializer(), Json.parseToJsonElement(raw))
     }
 
     /**
@@ -216,6 +216,7 @@ class AuthRepository {
         AppGraph.db.versions().clear()
         AppGraph.db.dailyWords().clear()
         AppGraph.settings.setLastUserId(null)
+        AppGraph.settings.setLastPushToken(null)
         // A 18+ megerősítés személyhez kötött: másik fiókkal újra meg kell erősíteni.
         runCatching { AppGraph.settings.setShowAdult(false) }
         AppGraph.profiles.clear()

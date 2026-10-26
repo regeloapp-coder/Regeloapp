@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -99,8 +100,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -188,6 +191,14 @@ private sealed interface TtsEvent {
 }
 
 private val ttsRates = listOf(0.8f, 1.0f, 1.25f, 1.5f)
+
+internal fun chapterIndexAfterSwipe(currentIndex: Int, chapterCount: Int, dragPx: Float, thresholdPx: Float): Int {
+    if (chapterCount <= 0 || kotlin.math.abs(dragPx) < thresholdPx) return currentIndex
+    return when {
+        dragPx < 0 -> (currentIndex + 1).coerceAtMost(chapterCount - 1)
+        else -> (currentIndex - 1).coerceAtLeast(0)
+    }
+}
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
@@ -434,6 +445,7 @@ private fun ReaderContent(
     }
 
     val twoColumns = wide && rs.twoColumns
+    val swipeThresholdPx = with(LocalDensity.current) { 72.dp.toPx() }
 
     // Végigolvasás rögzítése (olvasási kihívás): az utolsó fejezet végén, egy kis olvasási idő után.
     val atEndNow by remember(blocks) {
@@ -458,14 +470,14 @@ private fun ReaderContent(
             return@LaunchedEffect
         }
         runCatching {
-            if (AppGraph.reading.markFinished(b.id, b.title)) {
+            if (AppGraph.reading.markFinished(b.id)) {
                 val c = AppGraph.reading.challenge()
                 snackbar.notify(
                     if (c.goal > 0) "Kiolvastad! 🎉 Idei olvasási kihívás: ${c.count}/${c.goal}."
                     else "Kiolvastad! 🎉 Ez az idei ${c.count}. elolvasott könyved."
                 )
             }
-        }
+        }.onFailure { hu.regelo.app.util.ErrorReporter.report(it, "ReaderScreen.markFinished") }
     }
     // Kétoszlopos módban nincs görgetési pozíció: a fejezet megnyitását mentjük.
     LaunchedEffect(chapter?.id, twoColumns, gated) {
@@ -572,7 +584,24 @@ private fun ReaderContent(
             val progress by remember(blocks) { androidx.compose.runtime.derivedStateOf { if (blocks.isEmpty()) 0f else (listState.firstVisibleItemIndex.toFloat() / (blocks.size + 1)).coerceIn(0f, 1f) } }
             LinearProgressIndicator(progress = { ((index.coerceAtLeast(0) + progress) / totalChapters).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(2.dp), color = colors.accent, trackColor = colors.muted.copy(alpha = 0.2f))
 
-            Box(Modifier.weight(1f)) {
+            Box(
+                Modifier.weight(1f).pointerInput(index, totalChapters, twoColumns, swipeThresholdPx) {
+                    if (!twoColumns) {
+                        var horizontalDrag = 0f
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, amount ->
+                                horizontalDrag += amount
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                index = chapterIndexAfterSwipe(index, totalChapters, horizontalDrag, swipeThresholdPx)
+                                horizontalDrag = 0f
+                            },
+                            onDragCancel = { horizontalDrag = 0f },
+                        )
+                    }
+                },
+            ) {
                 val mErr = metaError
                 val cErr = chapterError
                 val ch = chapter

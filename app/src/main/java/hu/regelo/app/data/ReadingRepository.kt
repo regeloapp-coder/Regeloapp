@@ -3,6 +3,7 @@ package hu.regelo.app.data
 import hu.regelo.app.AppGraph
 import hu.regelo.app.util.nowMs
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -26,9 +27,9 @@ class ReadingRepository {
 
     /** Könyvenkénti gyorsítótár, hogy az olvasó lapozáskor ne kérdezze le újra. */
     private val notesCache = java.util.concurrent.ConcurrentHashMap<String, List<ReaderNote>>()
-    private val finishedThisSession: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    private val finishing: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
-    fun clear() { notesCache.clear(); finishedThisSession.clear() }
+    fun clear() { notesCache.clear(); finishing.clear() }
 
     // ---------- Jegyzetek és kiemelések ----------
 
@@ -115,36 +116,23 @@ class ReadingRepository {
 
     // ---------- Végigolvasott könyvek és éves cél ----------
 
-    private fun yearOf(ms: Long): Int = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).year
+    private fun yearOf(ms: Long): Int = Instant.ofEpochMilli(ms).atZone(ZoneId.of("Europe/Budapest")).year
 
     /**
      * Végigolvasás azonosítója: „év:könyv”, így egy újraolvasás a következő évben külön számít,
      * és nem írja felül a tavalyi bejegyzést. (A régi, csak könyvazonosítós bejegyzéseket is olvassuk.)
      */
-    private fun finishedKey(year: Int, bookId: String) = "$year:$bookId"
-
     /** A könyv végére érve egyszer rögzítjük (évenként számít bele a kihívásba). */
-    suspend fun markFinished(bookId: String, title: String): Boolean {
-        val year = LocalDate.now().year
-        val key = finishedKey(year, bookId)
-        if (!finishedThisSession.add(key)) return false
-        val uid = AppGraph.auth.userId ?: run { finishedThisSession -= key; return false }
+    suspend fun markFinished(bookId: String): Boolean {
+        if (AppGraph.auth.userId == null) return false
+        if (!finishing.add(bookId)) return false
         try {
-            val thisYear = finishedBooks().any { it.bookId == bookId && yearOf(it.finishedAt) == year }
-            if (thisYear) return false
-            val now = nowMs()
-            db.from(table).upsert(
-                LibraryItemDto(uid, "FINISHED", key, buildJsonObject {
-                    put("book_id", bookId)
-                    put("title", title.take(200))
-                    put("finished_at", now)
-                    put("year", year)
-                }, false, now)
-            ) { onConflict = "user_id,kind,item_id" }
-            return true
-        } catch (e: Exception) {
-            finishedThisSession -= key // hiba esetén később újra próbálhatjuk
-            throw e
+            return db.postgrest.rpc(
+                "regelo_mark_book_finished",
+                buildJsonObject { put("p_book_id", bookId) },
+            ).decodeAs<Boolean>()
+        } finally {
+            finishing -= bookId
         }
     }
 
@@ -168,10 +156,9 @@ class ReadingRepository {
         db.from(table).upsert(LibraryItemDto(uid, "FINISHED", item.itemId, JsonObject(emptyMap()), true, nowMs())) {
             onConflict = "user_id,kind,item_id"
         }
-        finishedThisSession -= finishedKey(yearOf(item.finishedAt), item.bookId)
     }
 
-    suspend fun challenge(year: Int = LocalDate.now().year): ReadingChallenge {
+    suspend fun challenge(year: Int = java.time.LocalDate.now(ZoneId.of("Europe/Budapest")).year): ReadingChallenge {
         val uid = AppGraph.auth.userId ?: return ReadingChallenge(year, 0, emptyList())
         val goal = db.from(table).select {
             filter {

@@ -53,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import hu.regelo.app.AppGraph
 import hu.regelo.app.data.BookCard
+import hu.regelo.app.data.DiscoverFilter
+import hu.regelo.app.data.DiscoverSort
 import hu.regelo.app.data.ContinueItem
 import hu.regelo.app.data.ReadingList
 import hu.regelo.app.ui.components.BookCover
@@ -70,6 +72,7 @@ import hu.regelo.app.ui.nav.Tab
 import hu.regelo.app.ui.theme.Lora
 import hu.regelo.app.util.relativeTime
 import hu.regelo.app.data.OfficialOverviewDto
+import hu.regelo.app.data.ProfileDto
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.ExpandLess
@@ -94,6 +97,9 @@ private data class LibraryData(
     val lists: List<ReadingList>,
     val challenge: hu.regelo.app.data.ReadingChallenge?,
     val official: List<OfficialOverviewDto> = emptyList(),
+    val newest: List<BookCard> = emptyList(),
+    val popular: List<BookCard> = emptyList(),
+    val recentAuthors: List<ProfileDto> = emptyList(),
 )
 
 @Composable
@@ -113,6 +119,10 @@ fun LibraryScreen(nav: Navigator) {
         val savedIds = runCatching { AppGraph.library.savedBookIds() }.orReport("LibraryScreen", emptyList())
         val likedIds = runCatching { AppGraph.social.likedBookIds() }.orReport("LibraryScreen", emptyList())
         val all = runCatching { AppGraph.books.toCards(AppGraph.books.byIds((savedIds + likedIds).distinct())) }.orReport("LibraryScreen", emptyList()).associateBy { it.book.id }
+        val newest = runCatching { AppGraph.books.discover(DiscoverFilter(), 0, 12).items }
+            .orReport("LibraryScreen.newest", emptyList())
+        val popular = runCatching { AppGraph.books.discover(DiscoverFilter(sort = DiscoverSort.POPULAR), 0, 12).items }
+            .orReport("LibraryScreen.popular", emptyList())
         LibraryData(
             continueItems = cont,
             saved = savedIds.mapNotNull { all[it] },
@@ -120,7 +130,10 @@ fun LibraryScreen(nav: Navigator) {
             lists = runCatching { AppGraph.library.myLists() }.orReport("LibraryScreen", emptyList()),
             challenge = runCatching { AppGraph.reading.challenge() }.orReport("LibraryScreen", null),
             // A hivatalos sáv hibája soha nem akadályozza a Könyvtár többi részét.
-            official = runCatching { AppGraph.official.overview() }.getOrDefault(emptyList()),
+            official = runCatching { AppGraph.official.overview() }.orReport("LibraryScreen.official", emptyList()),
+            newest = newest,
+            popular = popular,
+            recentAuthors = newest.mapNotNull { it.author }.distinctBy { it.userId }.take(6),
         )
     }
     // Visszatéréskor (pl. olvasás után vagy az app újbóli megnyitásakor) frissül a Folytatás és a hivatalos sáv.
@@ -132,7 +145,7 @@ fun LibraryScreen(nav: Navigator) {
         TopAppBar(
             title = {
                 Column {
-                    Text("Könyvtár", style = MaterialTheme.typography.headlineSmall)
+                    Text("Kezdőlap", style = MaterialTheme.typography.headlineSmall)
                     me?.let { Text("Szia, ${it.displayName.substringBefore(' ')}!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             },
@@ -148,6 +161,20 @@ fun LibraryScreen(nav: Navigator) {
                 if (data == null) {
                     item { hu.regelo.app.ui.components.LoadingBox(Modifier.height(240.dp)) }
                 } else {
+                    if (data.newest.isNotEmpty()) {
+                        item { SectionTitle("Új történetek", action = "Felfedezés", onAction = { nav.select(Tab.DISCOVER) }) }
+                        item { Shelf(data.newest) { nav.push(Route.BookDetail(it)) } }
+                    }
+                    if (data.recentAuthors.isNotEmpty()) {
+                        item { SectionTitle("Friss szerzők", action = "Keresés", onAction = { nav.open(Tab.DISCOVER, Route.Search(people = true)) }) }
+                        items(data.recentAuthors, key = { "home-author-${it.userId}" }) { author ->
+                            hu.regelo.app.ui.components.PersonRow(author, onClick = { nav.push(Route.Profile(author.userId)) })
+                        }
+                    }
+                    if (data.popular.isNotEmpty()) {
+                        item { SectionTitle("Felkapott történetek", action = "Mind", onAction = { nav.select(Tab.DISCOVER) }) }
+                        item { Shelf(data.popular) { nav.push(Route.BookDetail(it)) } }
+                    }
                     // Olvasási kihívás (éves cél)
                     data.challenge?.let { ch ->
                         item { Spacer(Modifier.height(4.dp)); hu.regelo.app.ui.components.ReadingChallengeCard(ch, onClick = { challengeDialog = true }) }

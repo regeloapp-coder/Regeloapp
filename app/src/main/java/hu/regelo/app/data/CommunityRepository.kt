@@ -196,6 +196,7 @@ class CommunityRepository {
     }
 
     suspend fun challenges(): List<ChallengeCard> {
+        hu.regelo.app.util.ServerClock.sync()
         val list = db.from("writing_challenges").select {
             order("voting_deadline", Order.DESCENDING)
             limit(100)
@@ -213,6 +214,7 @@ class CommunityRepository {
 
     /** A most nevezhető kihívások (az Írás fül felhívásához). */
     suspend fun openForSubmission(): List<ChallengeDto> {
+        hu.regelo.app.util.ServerClock.sync()
         val now = java.time.Instant.ofEpochMilli(hu.regelo.app.util.ServerClock.now()).toString()
         return db.from("writing_challenges").select {
             filter {
@@ -224,6 +226,7 @@ class CommunityRepository {
     }
 
     suspend fun challenge(id: String): ChallengeDetail {
+        hu.regelo.app.util.ServerClock.sync()
         val c = db.from("writing_challenges").select { filter { eq("id", id) } }.decodeSingleOrNull<ChallengeDto>()
             ?: error("Ez a kihívás már nem létezik.")
         val me = AppGraph.auth.userId

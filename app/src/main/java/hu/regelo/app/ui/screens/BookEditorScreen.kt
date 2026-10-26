@@ -93,8 +93,10 @@ import hu.regelo.app.ui.components.runAction
 import hu.regelo.app.ui.nav.Navigator
 import hu.regelo.app.ui.nav.Route
 import hu.regelo.app.util.Images
+import hu.regelo.app.util.friendlyMessage
 import hu.regelo.app.util.readingTimeLabel
 import hu.regelo.app.util.relativeTime
+import hu.regelo.app.ui.components.notify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -114,6 +116,7 @@ fun BookEditorScreen(nav: Navigator, bookId: String) {
     var tagsText by remember { mutableStateOf("") }
     var cropSource by remember { mutableStateOf<Bitmap?>(null) }
     var deleteChapter by remember { mutableStateOf<LocalChapter?>(null) }
+    var deleteBookConfirm by remember { mutableStateOf(false) }
     var announce by remember { mutableStateOf(false) }
     var publishConfirm by remember { mutableStateOf(false) }
     var series by remember { mutableStateOf<List<SeriesDto>>(emptyList()) }
@@ -158,6 +161,9 @@ fun BookEditorScreen(nav: Navigator, bookId: String) {
         BackTopBar("Történet szerkesztése", onBack = { nav.back() }) {
             SyncBadge(sync.syncing, sync.pending, sync.offline, sync.error) { AppGraph.writing.requestSync(immediate = true) }
             IconButton(onClick = { nav.push(Route.Reader(bookId)) }) { Icon(Icons.AutoMirrored.Filled.MenuBook, "Előnézet") }
+            IconButton(onClick = { deleteBookConfirm = true }) {
+                Icon(Icons.Default.Delete, "Történet törlése", tint = MaterialTheme.colorScheme.error)
+            }
         }
         val d = draft
         if (d == null) { LoadingBox(); return@Column }
@@ -314,6 +320,28 @@ fun BookEditorScreen(nav: Navigator, bookId: String) {
             onDismiss = { deleteChapter = null },
         )
     }
+    if (deleteBookConfirm) {
+        ConfirmDialog(
+            title = "Történet törlése",
+            text = "A történet és minden fejezete véglegesen törlődik a telefonról és a felhőből. Ez nem vonható vissza.",
+            confirm = "Végleges törlés",
+            destructive = true,
+            onConfirm = {
+                scope.launch {
+                    try {
+                        AppGraph.writing.deleteBook(bookId)
+                        snackbar.notify("Történet törölve.")
+                        nav.back()
+                    } catch (e: Exception) {
+                        snackbar.showSnackbar(e.friendlyMessage().also {
+                            hu.regelo.app.util.ErrorReporter.report(e, "BookEditorScreen.deleteBook")
+                        })
+                    }
+                }
+            },
+            onDismiss = { deleteBookConfirm = false },
+        )
+    }
     if (publishConfirm) {
         val d = draft
         ConfirmDialog(
@@ -396,4 +424,3 @@ private fun ChapterRow(ch: LocalChapter, isFirst: Boolean, isLast: Boolean, onOp
     }
     HorizontalDivider(Modifier.padding(start = 48.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
-
