@@ -1,4 +1,4 @@
-# Regélő – Android alkalmazás (v1.3.5)
+# Regélő – Android alkalmazás (v1.3.6)
 
 Magyar írói és olvasói platform (Wattpad / Inkitt jellegű), Kotlin + Jetpack Compose.
 
@@ -23,7 +23,7 @@ Google Playre aláírt Android App Bundle-t (AAB) tölts fel, ne fejlesztői deb
 4. Készítsd el az AAB-t, ellenőrizd a Play Console belső tesztcsatornáján, majd csak sikeres ellenőrzés után
    indítsd a szélesebb körű kiadást.
 5. Minden új feltöltés előtt növeld az `app/build.gradle.kts` fájlban a `versionCode` értékét. Jelenlegi értéke
-   `135`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
+   `136`; ez azonos vagy kisebb értékkel nem tölthető fel frissítésként.
 
 ### Parancssoros/CI aláírás
 Biztonságos build/CI titokként add meg mind a négy környezeti változót:
@@ -93,6 +93,8 @@ Hivatalos e-mail: regeloapp@gmail.com · Hivatalos profil az appban: @regelohiva
 - **1.3.5 – Saját művek a Profilon** – A saját profil új „Műveim” részén külön választhatók a publikált művek,
   piszkozatok és sorozatok. A saját történetek megnyithatók vagy szerkeszthetők, a sorozatok adatlapja és kezelése
   közvetlenül elérhető; mások profilján privát írói tartalom nem jelenik meg.
+- **1.3.6 – Személyes olvasás a Kezdőlapon** – Az olvasási kihívás és az „Olvasás folytatása” szekció a
+  Kezdőlap tetejére került, az új és felkapott történetek felfedezése elé.
 - **v1.4 backend-kiegészítés** – A könyv befejezésének mentése szerveroldali, idempotens művelet,
   amely a budapesti naptári évet és az adatbázisban szereplő publikált/befejezett állapotot használja.
   A rate limit párhuzamos kéréseknél is atomikusan érvényesül. A kliens nem ment tokent titkosítatlanul,

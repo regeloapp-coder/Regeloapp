@@ -161,25 +161,10 @@ fun LibraryScreen(nav: Navigator) {
                 if (data == null) {
                     item { hu.regelo.app.ui.components.LoadingBox(Modifier.height(240.dp)) }
                 } else {
-                    if (data.newest.isNotEmpty()) {
-                        item { SectionTitle("Új történetek", action = "Felfedezés", onAction = { nav.select(Tab.DISCOVER) }) }
-                        item { Shelf(data.newest) { nav.push(Route.BookDetail(it)) } }
-                    }
-                    if (data.recentAuthors.isNotEmpty()) {
-                        item { SectionTitle("Friss szerzők", action = "Keresés", onAction = { nav.open(Tab.DISCOVER, Route.Search(people = true)) }) }
-                        items(data.recentAuthors, key = { "home-author-${it.userId}" }) { author ->
-                            hu.regelo.app.ui.components.PersonRow(author, onClick = { nav.push(Route.Profile(author.userId)) })
-                        }
-                    }
-                    if (data.popular.isNotEmpty()) {
-                        item { SectionTitle("Felkapott történetek", action = "Mind", onAction = { nav.select(Tab.DISCOVER) }) }
-                        item { Shelf(data.popular) { nav.push(Route.BookDetail(it)) } }
-                    }
-                    // Olvasási kihívás (éves cél)
+                    // A személyes olvasási cél és a folytatás legyen az első felfedezési tartalom.
                     data.challenge?.let { ch ->
                         item { Spacer(Modifier.height(4.dp)); hu.regelo.app.ui.components.ReadingChallengeCard(ch, onClick = { challengeDialog = true }) }
                     }
-                    // Olvasás folytatása
                     if (data.continueItems.isNotEmpty()) {
                         item { SectionTitle("Olvasás folytatása") }
                         val first = data.continueItems.first()
@@ -205,6 +190,20 @@ fun LibraryScreen(nav: Navigator) {
                                 }
                             }
                         }
+                    }
+                    if (data.newest.isNotEmpty()) {
+                        item { SectionTitle("Új történetek", action = "Felfedezés", onAction = { nav.select(Tab.DISCOVER) }) }
+                        item { Shelf(data.newest) { nav.push(Route.BookDetail(it)) } }
+                    }
+                    if (data.recentAuthors.isNotEmpty()) {
+                        item { SectionTitle("Friss szerzők", action = "Keresés", onAction = { nav.open(Tab.DISCOVER, Route.Search(people = true)) }) }
+                        items(data.recentAuthors, key = { "home-author-${it.userId}" }) { author ->
+                            hu.regelo.app.ui.components.PersonRow(author, onClick = { nav.push(Route.Profile(author.userId)) })
+                        }
+                    }
+                    if (data.popular.isNotEmpty()) {
+                        item { SectionTitle("Felkapott történetek", action = "Mind", onAction = { nav.select(Tab.DISCOVER) }) }
+                        item { Shelf(data.popular) { nav.push(Route.BookDetail(it)) } }
                     }
                     // A Regélőtől: hivatalos kiadványok (összecsukható, elrejthető sáv)
                     if (showStrip && data.official.isNotEmpty()) {
